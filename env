@@ -1,0 +1,13 @@
+# Telegram Bot Configuration
+BOT_TOKEN=8247991930:AAGKaYTdMwN-Wt3XpxCZgVD8QL6yH_RG-yU
+ADMIN_IDS=960099174
+
+# Flask Configuration
+SECRET_KEY=12345678
+FLASK_ENV=development
+
+# Webhook Configuration
+# LOKAL ISHLATISH UCHUN WEBHOOK_URL NI BO'SH QOLDIRING!
+# Render.com ga deploy qilganingizda to'ldiring
+WEBHOOK_URL=
+PORT=10000

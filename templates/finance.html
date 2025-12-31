@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}{{ t('finance') }} - CHORVA FERMERI PRO{% endblock %}
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon income">
+            <i class="fas fa-arrow-up"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t('income') }}</div>
+            <div class="stat-value" id="totalIncome">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon expense">
+            <i class="fas fa-arrow-down"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t('expense') }}</div>
+            <div class="stat-value" id="totalExpense">0</div>
+        </div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header">
+        <div class="card-title"><i class="fas fa-filter"></i> Filtr</div>
+    </div>
+    <div class="card-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="btn btn-sm" id="btnIncome" onclick="filterType('income')">
+                <i class="fas fa-arrow-up"></i> Kirim
+            </button>
+            <button class="btn btn-sm" id="btnExpense" onclick="filterType('expense')">
+                <i class="fas fa-arrow-down"></i> Chiqim
+            </button>
+        </div>
+    </div>
+</div>
+<div id="financeList"></div>
+<div id="emptyState" class="empty-state" style="display: none;">
+    <div class="empty-icon"><i class="fas fa-chart-line"></i></div>
+    <div class="empty-title">Ma'lumotlar yo'q</div>
+</div>
+<button class="fab" onclick="addFinanceModal.show()"><i class="fas fa-plus"></i></button>
+<div class="modal" id="addFinanceModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-plus"></i> Moliya qo'shish</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="financeForm">
+                <div class="form-group">
+                    <label class="form-label">Turi *</label>
+                    <select id="type" class="form-control" required>
+                        <option value="income">💰 Kirim</option>
+                        <option value="expense">💸 Chiqim</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Miqdor * (so'm)</label>
+                    <input type="text" id="amount" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Kategoriya *</label>
+                    <select id="category" class="form-control" required>
+                        <option value="animal_sale">Hayvon sotildi</option>
+                        <option value="animal_purchase">Hayvon sotib olindi</option>
+                        <option value="feed_purchase">Ozuqa</option>
+                        <option value="medicine">Dori-darmon</option>
+                        <option value="other">Boshqa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Izoh</label>
+                    <textarea id="description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sana *</label>
+                    <input type="date" id="date" class="form-control" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="addFinanceModal.hide()">Bekor qilish</button>
+            <button class="btn btn-success" onclick="saveFinance()"><i class="fas fa-save"></i> Saqlash</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const addFinanceModal = new chorvaApp.Modal('addFinanceModal');
+let financeData = [];
+let currentFilter = null;
+
+async function loadFinance() {
+    try {
+        financeData = await chorvaApp.apiRequest('/api/finance');
+        const stats = await chorvaApp.apiRequest('/api/finance/stats');
+        
+        document.getElementById('totalIncome').textContent = chorvaApp.formatNumber(stats.income);
+        document.getElementById('totalExpense').textContent = chorvaApp.formatNumber(stats.expense);
+        
+        renderFinance();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function filterType(type) {
+    currentFilter = currentFilter === type ? null : type;
+    
+    document.getElementById('btnIncome').classList.toggle('btn-success', currentFilter === 'income');
+    document.getElementById('btnExpense').classList.toggle('btn-danger', currentFilter === 'expense');
+    
+    renderFinance();
+}
+
+function renderFinance() {
+    const container = document.getElementById('financeList');
+    const emptyState = document.getElementById('emptyState');
+    
+    let filtered = currentFilter ? financeData.filter(f => f.type === currentFilter) : financeData;
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    container.innerHTML = filtered.map(f => `
+        <div class="list-item">
+            <div class="list-icon" style="background: rgba(${f.type === 'income' ? '46,204,113' : '231,76,60'}, 0.1); color: ${f.type === 'income' ? '#2ecc71' : '#e74c3c'};">
+                <i class="fas fa-${f.type === 'income' ? 'arrow-up' : 'arrow-down'}"></i>
+            </div>
+            <div class="list-content">
+                <div class="list-title">${f.category.replace('_', ' ')}</div>
+                <div class="list-subtitle">
+                    💰 ${chorvaApp.formatNumber(f.amount)} so'm<br>
+                    📅 ${new Date(f.date).toLocaleDateString('uz-UZ')}
+                    ${f.description ? '<br>📝 ' + f.description : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function saveFinance() {
+    const data = {
+        type: document.getElementById('type').value,
+        amount: chorvaApp.parseFormattedNumber(document.getElementById('amount').value),
+        category: document.getElementById('category').value,
+        description: document.getElementById('description').value || null,
+        date: document.getElementById('date').value
+    };
+    
+    if (!data.amount || !data.date) {
+        chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+        return;
+    }
+    
+    try {
+        await chorvaApp.apiRequest('/api/finance', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        chorvaApp.showAlert('Qo\'shildi!', 'success');
+        addFinanceModal.hide();
+        document.getElementById('financeForm').reset();
+        loadFinance();
+    } catch (error) {
+        chorvaApp.showAlert('Xatolik!', 'danger');
+    }
+}
+
+document.getElementById('date').valueAsDate = new Date();
+loadFinance();
+new chorvaApp.PullToRefresh(() => loadFinance());
+</script>
+{% endblock %}

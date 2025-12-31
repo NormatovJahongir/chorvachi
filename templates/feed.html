@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ t('feed') }} - CHORVA FERMERI PRO{% endblock %}
+{% block content %}
+<div id="feedList"></div>
+<div id="emptyState" class="empty-state" style="display: none;">
+    <div class="empty-icon"><i class="fas fa-seedling"></i></div>
+    <div class="empty-title">Ozuqa yo'q</div>
+</div>
+<button class="fab" onclick="addFeedModal.show()"><i class="fas fa-plus"></i></button>
+<div class="modal" id="addFeedModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-plus"></i> Ozuqa qo'shish</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="feedForm">
+                <div class="form-group">
+                    <label class="form-label">Nomi *</label>
+                    <input type="text" id="name" class="form-control" placeholder="Masalan: Arpabodring" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Miqdor * (kg)</label>
+                    <input type="number" id="quantity" class="form-control" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Narxi * (kg uchun, so'm)</label>
+                    <input type="text" id="unit_price" class="form-control" required oninput="calculateTotal()">
+                </div>
+                <div id="totalCost" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-calculator"></i>
+                    <div>
+                        <strong>Jami:</strong>
+                        <span id="totalAmount"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Yetkazib beruvchi</label>
+                    <input type="text" id="supplier" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sana *</label>
+                    <input type="date" id="feed_date" class="form-control" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="addFeedModal.hide()">Bekor qilish</button>
+            <button class="btn btn-success" onclick="saveFeed()"><i class="fas fa-save"></i> Saqlash</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const addFeedModal = new chorvaApp.Modal('addFeedModal');
+let feedData = [];
+
+async function loadFeed() {
+    try {
+        feedData = await chorvaApp.apiRequest('/api/feed');
+        renderFeed();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderFeed() {
+    const container = document.getElementById('feedList');
+    const emptyState = document.getElementById('emptyState');
+    
+    if (feedData.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    container.innerHTML = feedData.map(f => {
+        const total = f.quantity * f.unit_price;
+        return `
+            <div class="list-item">
+                <div class="list-icon">
+                    <i class="fas fa-seedling"></i>
+                </div>
+                <div class="list-content">
+                    <div class="list-title">${f.name}</div>
+                    <div class="list-subtitle">
+                        ⚖️ ${f.quantity} kg × ${chorvaApp.formatNumber(f.unit_price)} = ${chorvaApp.formatNumber(total)} so'm<br>
+                        📅 ${new Date(f.feed_date).toLocaleDateString('uz-UZ')}
+                        ${f.supplier ? '<br>🚚 ' + f.supplier : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function calculateTotal() {
+    const qty = parseFloat(document.getElementById('quantity').value) || 0;
+    const price = chorvaApp.parseFormattedNumber(document.getElementById('unit_price').value);
+    
+    if (qty && price) {
+        const total = qty * price;
+        document.getElementById('totalCost').style.display = 'flex';
+        document.getElementById('totalAmount').textContent = chorvaApp.formatNumber(total) + ' so\'m';
+    } else {
+        document.getElementById('totalCost').style.display = 'none';
+    }
+}
+
+async function saveFeed() {
+    const data = {
+        name: document.getElementById('name').value,
+        quantity: parseFloat(document.getElementById('quantity').value),
+        unit_price: chorvaApp.parseFormattedNumber(document.getElementById('unit_price').value),
+        supplier: document.getElementById('supplier').value || null,
+        feed_date: document.getElementById('feed_date').value
+    };
+    
+    if (!data.name || !data.quantity || !data.unit_price || !data.feed_date) {
+        chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+        return;
+    }
+    
+    try {
+        await chorvaApp.apiRequest('/api/feed', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        chorvaApp.showAlert('Ozuqa qo\'shildi!', 'success');
+        addFeedModal.hide();
+        document.getElementById('feedForm').reset();
+        loadFeed();
+    } catch (error) {
+        chorvaApp.showAlert('Xatolik!', 'danger');
+    }
+}
+
+document.getElementById('quantity').addEventListener('input', calculateTotal);
+document.getElementById('feed_date').valueAsDate = new Date();
+loadFeed();
+new chorvaApp.PullToRefresh(() => loadFeed());
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: chorva-fermeri-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app & python telegram_bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEBHOOK_URL
+        fromService:
+          type: web
+          name: chorva-fermeri-bot
+          property: url
+      - key: PORT
+        value: 10000

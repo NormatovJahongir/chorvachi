@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .loader {
+            text-align: center;
+            color: white;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        h2 {
+            margin: 10px 0;
+            font-size: 1.2rem;
+        }
+        
+        p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        
+        .error {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            color: #c62828;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <h2>🐄 CHORVA FERMERI PRO</h2>
+        <p>Yuklanmoqda...</p>
+    </div>
+
+    <script>
+        // Telegram Web App SDK
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        // User ma'lumotlarini olish
+        const initData = tg.initDataUnsafe;
+        const user = initData.user;
+        
+        if (user && user.id) {
+            // Telegram ID bor - avtomatik login
+            const telegram_id = user.id;
+            
+            // Dashboard ga yo'naltirish
+            window.location.href = `/webapp?user_id=${telegram_id}`;
+        } else {
+            // Xato - Telegram ma'lumotlari yo'q
+            document.getElementById('loader').innerHTML = `
+                <div class="error">
+                    <h2>❌ Xato</h2>
+                    <p>Telegram ma'lumotlari topilmadi.</p>
+                    <p>Iltimos, botni qayta ishga tushiring:</p>
+                    <p><strong>/start</strong></p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

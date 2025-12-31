@@ -1,0 +1,5 @@
+Flask
+Werkzeug
+python-telegram-bot
+python-dotenv
+gunicorn

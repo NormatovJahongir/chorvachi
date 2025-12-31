@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2ecc71">
+    <title>{% block title %}CHORVA FERMERI PRO{% endblock %}</title>
+    
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Header (Mobile) -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-logo">
+                <i class="fas fa-cow"></i>
+                <span>CHORVA FERMERI PRO</span>
+            </div>
+            <div class="header-actions">
+                <button class="header-btn" onclick="toggleLanguage()">
+                    <i class="fas fa-language"></i>
+                </button>
+                <button class="header-btn" onclick="location.href='/logout'">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Bottom Navigation (Mobile) -->
+    <nav class="bottom-nav">
+        <a href="/dashboard" class="bottom-nav-item">
+            <i class="fas fa-home"></i>
+            <span>{{ t('dashboard') }}</span>
+        </a>
+        <a href="/animals" class="bottom-nav-item">
+            <i class="fas fa-cow"></i>
+            <span>{{ t('animals') }}</span>
+        </a>
+        <a href="/sales" class="bottom-nav-item">
+            <i class="fas fa-money-bill-wave"></i>
+            <span>{{ t('sales') }}</span>
+        </a>
+        <a href="/finance" class="bottom-nav-item">
+            <i class="fas fa-chart-line"></i>
+            <span>{{ t('finance') }}</span>
+        </a>
+        <button class="bottom-nav-item" onclick="toggleMenu()">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+    </nav>
+
+    <!-- Menu Modal -->
+    <div class="modal" id="menuModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-bars"></i> Menu
+                </h3>
+                <button class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="list">
+                    <a href="/butchers" class="list-item">
+                        <div class="list-icon">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">{{ t('butchers') }}</div>
+                            <div class="list-subtitle">Qassoblar ro'yxati</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </a>
+                    
+                    <a href="/feed" class="list-item">
+                        <div class="list-icon">
+                            <i class="fas fa-seedling"></i>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">{{ t('feed') }}</div>
+                            <div class="list-subtitle">Ozuqa</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </a>
+                    
+                    <a href="/vaccinations" class="list-item">
+                        <div class="list-icon">
+                            <i class="fas fa-syringe"></i>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">{{ t('vaccinations') }}</div>
+                            <div class="list-subtitle">Vaksinatsiya</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </a>
+                    
+                    <button class="list-item" onclick="location.href='/logout'">
+                        <div class="list-icon" style="background: rgba(231, 76, 60, 0.1); color: #e74c3c;">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">Chiqish</div>
+                            <div class="list-subtitle">Hisobdan chiqish</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Language Modal -->
+    <div class="modal" id="languageModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-language"></i> Til / Язык / Language
+                </h3>
+                <button class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="list">
+                    <button class="list-item" onclick="chorvaApp.changeLanguage('uz')">
+                        <div class="list-icon">
+                            <span style="font-size: 1.5rem;">🇺🇿</span>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">O'zbekcha</div>
+                        </div>
+                        <i class="fas fa-check text-success" style="display: {{ 'block' if session.get('language') == 'uz' else 'none' }}"></i>
+                    </button>
+                    
+                    <button class="list-item" onclick="chorvaApp.changeLanguage('ru')">
+                        <div class="list-icon">
+                            <span style="font-size: 1.5rem;">🇷🇺</span>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">Русский</div>
+                        </div>
+                        <i class="fas fa-check text-success" style="display: {{ 'block' if session.get('language') == 'ru' else 'none' }}"></i>
+                    </button>
+                    
+                    <button class="list-item" onclick="chorvaApp.changeLanguage('en')">
+                        <div class="list-icon">
+                            <span style="font-size: 1.5rem;">🇬🇧</span>
+                        </div>
+                        <div class="list-content">
+                            <div class="list-title">English</div>
+                        </div>
+                        <i class="fas fa-check text-success" style="display: {{ 'block' if session.get('language') == 'en' else 'none' }}"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+        // Telegram Web App
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.expand();
+            tg.setHeaderColor('#2ecc71');
+            tg.setBackgroundColor('#e8f8f5');
+            tg.enableClosingConfirmation();
+            
+            // Haptic feedback on page load
+            tg.HapticFeedback.impactOccurred('light');
+        }
+        
+        // Modals
+        const menuModal = new chorvaApp.Modal('menuModal');
+        const languageModal = new chorvaApp.Modal('languageModal');
+        
+        function toggleMenu() {
+            menuModal.show();
+        }
+        
+        function toggleLanguage() {
+            languageModal.show();
+        }
+        
+        // Prevent double-tap zoom on iOS
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

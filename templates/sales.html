@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ t('sales') }} - CHORVA FERMERI PRO{% endblock %}
+{% block content %}
+<div id="salesList"></div>
+<div id="emptyState" class="empty-state" style="display: none;">
+    <div class="empty-icon"><i class="fas fa-money-bill-wave"></i></div>
+    <div class="empty-title">Sotuvlar yo'q</div>
+</div>
+<button class="fab" onclick="addSaleModal.show()"><i class="fas fa-plus"></i></button>
+<div class="modal" id="addSaleModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-plus"></i> Sotuv qo'shish</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="saleForm">
+                <div class="form-group">
+                    <label class="form-label">Hayvon *</label>
+                    <select id="animal_id" class="form-control" required onchange="updateProfit()">
+                        <option value="">Tanlang</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Qassob</label>
+                    <select id="butcher_id" class="form-control">
+                        <option value="">Tanlanmagan</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sotuv narxi * (so'm)</label>
+                    <input type="text" id="sale_price" class="form-control" required oninput="updateProfit()">
+                </div>
+                <div id="profitDisplay" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-chart-line"></i>
+                    <div>
+                        <strong>Foyda:</strong>
+                        <span id="profitAmount"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Xaridor ismi</label>
+                    <input type="text" id="buyer_name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Xaridor telefoni</label>
+                    <input type="tel" id="buyer_phone" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">To'lov turi *</label>
+                    <select id="payment_type" class="form-control" required>
+                        <option value="cash">💵 Naqd</option>
+                        <option value="card">💳 Plastik</option>
+                        <option value="transfer">🏦 O'tkazma</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sotuv sanasi *</label>
+                    <input type="date" id="sale_date" class="form-control" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="addSaleModal.hide()">Bekor qilish</button>
+            <button class="btn btn-success" onclick="saveSale()"><i class="fas fa-save"></i> Sotish</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const addSaleModal = new chorvaApp.Modal('addSaleModal');
+let sales = [], animals = [], butchers = [];
+
+async function loadData() {
+    try {
+        [sales, animals, butchers] = await Promise.all([
+            chorvaApp.apiRequest('/api/sales'),
+            chorvaApp.apiRequest('/api/animals'),
+            chorvaApp.apiRequest('/api/butchers')
+        ]);
+        renderSales();
+        populateSelects();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderSales() {
+    const container = document.getElementById('salesList');
+    const emptyState = document.getElementById('emptyState');
+    
+    if (sales.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    container.innerHTML = sales.map(s => {
+        const profit = s.sale_price - (s.purchase_price || 0);
+        return `
+            <div class="list-item">
+                <div class="list-icon">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="list-content">
+                    <div class="list-title">${s.animal_type} - ${s.breed}</div>
+                    <div class="list-subtitle">
+                        💰 ${chorvaApp.formatNumber(s.sale_price)} so'm<br>
+                        📈 Foyda: <span class="text-${profit >= 0 ? 'success' : 'danger'}">${chorvaApp.formatNumber(profit)} so'm</span><br>
+                        📅 ${new Date(s.sale_date).toLocaleDateString('uz-UZ')}
+                        ${s.buyer_name ? '<br>👤 ' + s.buyer_name : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function populateSelects() {
+    document.getElementById('animal_id').innerHTML = 
+        '<option value="">Tanlang</option>' +
+        animals.filter(a => a.status === 'active').map(a => 
+            `<option value="${a.id}" data-price="${a.purchase_price}">${a.type} - ${a.breed} (${chorvaApp.formatNumber(a.purchase_price)} so'm)</option>`
+        ).join('');
+    
+    document.getElementById('butcher_id').innerHTML = 
+        '<option value="">Tanlanmagan</option>' +
+        butchers.map(b => `<option value="${b.id}">${b.name} - ${b.phone}</option>`).join('');
+}
+
+function updateProfit() {
+    const animalSelect = document.getElementById('animal_id');
+    const selectedOption = animalSelect.options[animalSelect.selectedIndex];
+    const purchasePrice = parseFloat(selectedOption.dataset.price || 0);
+    const salePrice = chorvaApp.parseFormattedNumber(document.getElementById('sale_price').value);
+    
+    if (purchasePrice && salePrice) {
+        const profit = salePrice - purchasePrice;
+        document.getElementById('profitDisplay').style.display = 'flex';
+        document.getElementById('profitAmount').innerHTML = 
+            `<span class="text-${profit >= 0 ? 'success' : 'danger'}">${chorvaApp.formatNumber(profit)} so'm</span>`;
+    } else {
+        document.getElementById('profitDisplay').style.display = 'none';
+    }
+}
+
+async function saveSale() {
+    const data = {
+        animal_id: document.getElementById('animal_id').value,
+        butcher_id: document.getElementById('butcher_id').value || null,
+        sale_price: chorvaApp.parseFormattedNumber(document.getElementById('sale_price').value),
+        buyer_name: document.getElementById('buyer_name').value || null,
+        buyer_phone: document.getElementById('buyer_phone').value || null,
+        payment_type: document.getElementById('payment_type').value,
+        sale_date: document.getElementById('sale_date').value
+    };
+    
+    if (!data.animal_id || !data.sale_price || !data.sale_date) {
+        chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+        return;
+    }
+    
+    try {
+        await chorvaApp.apiRequest('/api/sales', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        chorvaApp.showAlert('Sotuv qo\'shildi!', 'success');
+        addSaleModal.hide();
+        document.getElementById('saleForm').reset();
+        loadData();
+    } catch (error) {
+        chorvaApp.showAlert('Xatolik!', 'danger');
+    }
+}
+
+document.getElementById('sale_date').valueAsDate = new Date();
+loadData();
+new chorvaApp.PullToRefresh(() => loadData());
+</script>
+{% endblock %}

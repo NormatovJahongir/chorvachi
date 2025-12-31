@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{{ t('butchers') }} - CHORVA FERMERI PRO{% endblock %}
+{% block content %}
+<div class="search-box">
+    <i class="fas fa-search search-icon"></i>
+    <input type="text" id="searchInput" class="search-input" placeholder="Ism, telefon yoki manzil...">
+    <button class="search-clear"><i class="fas fa-times"></i></button>
+</div>
+<div id="butchersList"></div>
+<div id="emptyState" class="empty-state" style="display: none;">
+    <div class="empty-icon"><i class="fas fa-user-tie"></i></div>
+    <div class="empty-title">Qassoblar yo'q</div>
+    <div class="empty-text">Yangi qassob qo'shish uchun + tugmasini bosing</div>
+</div>
+<button class="fab" onclick="addButcherModal.show()"><i class="fas fa-plus"></i></button>
+<div class="modal" id="addButcherModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-plus"></i> Qassob qo'shish</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="butcherForm">
+                <input type="hidden" id="butcherId">
+                <div class="form-group">
+                    <label class="form-label">Ism *</label>
+                    <input type="text" id="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Telefon *</label>
+                    <input type="tel" id="phone" class="form-control" placeholder="+998 90 123 45 67" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Manzil</label>
+                    <input type="text" id="address" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tajriba (yil)</label>
+                    <input type="number" id="experience" class="form-control" min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Izoh</label>
+                    <textarea id="notes" class="form-control" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="addButcherModal.hide()">Bekor qilish</button>
+            <button class="btn btn-success" onclick="saveButcher()"><i class="fas fa-save"></i> Saqlash</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const addButcherModal = new chorvaApp.Modal('addButcherModal');
+let butchers = [];
+let filteredButchers = [];
+
+async function loadButchers() {
+    try {
+        butchers = await chorvaApp.apiRequest('/api/butchers');
+        filteredButchers = [...butchers];
+        renderButchers();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderButchers() {
+    const container = document.getElementById('butchersList');
+    const emptyState = document.getElementById('emptyState');
+    
+    if (filteredButchers.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    container.innerHTML = filteredButchers.map(b => `
+        <div class="list-item">
+            <div class="list-icon">
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div class="list-content">
+                <div class="list-title">${b.name}</div>
+                <div class="list-subtitle">
+                    📱 ${b.phone}
+                    ${b.address ? '<br>📍 ' + b.address : ''}
+                    ${b.experience ? '<br>⭐ ' + b.experience + ' yil tajriba' : ''}
+                </div>
+            </div>
+            <button class="btn btn-sm btn-icon btn-primary" onclick="editButcher(${b.id})">
+                <i class="fas fa-edit"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+chorvaApp.setupSearch('searchInput', (query) => {
+    if (!query) {
+        filteredButchers = [...butchers];
+    } else {
+        const q = query.toLowerCase();
+        filteredButchers = butchers.filter(b => 
+            b.name.toLowerCase().includes(q) ||
+            b.phone.toLowerCase().includes(q) ||
+            (b.address && b.address.toLowerCase().includes(q))
+        );
+    }
+    renderButchers();
+});
+
+async function saveButcher() {
+    const id = document.getElementById('butcherId').value;
+    const data = {
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        address: document.getElementById('address').value || null,
+        experience: document.getElementById('experience').value || null,
+        notes: document.getElementById('notes').value || null
+    };
+    
+    if (!data.name || !data.phone) {
+        chorvaApp.showAlert('Ism va telefon to\'ldiring!', 'warning');
+        return;
+    }
+    
+    try {
+        if (id) {
+            await chorvaApp.apiRequest(`/api/butchers/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+            chorvaApp.showAlert('Qassob yangilandi!', 'success');
+        } else {
+            await chorvaApp.apiRequest('/api/butchers', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            chorvaApp.showAlert('Qassob qo\'shildi!', 'success');
+        }
+        
+        addButcherModal.hide();
+        document.getElementById('butcherForm').reset();
+        loadButchers();
+    } catch (error) {
+        chorvaApp.showAlert('Xatolik!', 'danger');
+    }
+}
+
+function editButcher(id) {
+    const butcher = butchers.find(b => b.id == id);
+    if (!butcher) return;
+    
+    document.getElementById('butcherId').value = butcher.id;
+    document.getElementById('name').value = butcher.name;
+    document.getElementById('phone').value = butcher.phone;
+    document.getElementById('address').value = butcher.address || '';
+    document.getElementById('experience').value = butcher.experience || '';
+    document.getElementById('notes').value = butcher.notes || '';
+    
+    addButcherModal.show();
+}
+
+loadButchers();
+new chorvaApp.PullToRefresh(() => loadButchers());
+</script>
+{% endblock %}

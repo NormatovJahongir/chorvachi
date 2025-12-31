@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('animals') }} - CHORVA FERMERI PRO{% endblock %}
+
+{% block content %}
+<!-- Search -->
+<div class="search-box">
+    <i class="fas fa-search search-icon"></i>
+    <input type="text" id="searchInput" class="search-input" placeholder="Qidirish...">
+    <button class="search-clear">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+
+<!-- Animals List -->
+<div id="animalsList"></div>
+
+<!-- Empty State -->
+<div id="emptyState" class="empty-state" style="display: none;">
+    <div class="empty-icon">
+        <i class="fas fa-cow"></i>
+    </div>
+    <div class="empty-title">Hayvonlar yo'q</div>
+    <div class="empty-text">Yangi hayvon qo'shish uchun + tugmasini bosing</div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="addAnimalModal.show()">
+    <i class="fas fa-plus"></i>
+</button>
+
+<!-- Add/Edit Modal -->
+<div class="modal" id="addAnimalModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalTitle">
+                <i class="fas fa-plus"></i> Hayvon qo'shish
+            </h3>
+            <button class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="animalForm">
+                <input type="hidden" id="animalId">
+                
+                <div class="form-group">
+                    <label class="form-label">Turi *</label>
+                    <select id="type" class="form-control" required>
+                        <option value="">Tanlang</option>
+                        <option value="Qo'y">🐑 Qo'y</option>
+                        <option value="Echki">🐐 Echki</option>
+                        <option value="Sigir">🐄 Sigir</option>
+                        <option value="Buzoq">🐮 Buzoq</option>
+                        <option value="Tovuq">🐔 Tovuq</option>
+                        <option value="O'rdak">🦆 O'rdak</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Zoti *</label>
+                    <input type="text" id="breed" class="form-control" placeholder="Masalan: Gissar" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Jinsi *</label>
+                    <select id="gender" class="form-control" required>
+                        <option value="">Tanlang</option>
+                        <option value="Erkak">♂️ Erkak</option>
+                        <option value="Urgochi">♀️ Urgochi</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Tug'ilgan sana</label>
+                    <input type="date" id="birth_date" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Vazni (kg)</label>
+                    <input type="number" id="weight" class="form-control" placeholder="0.0" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Sotib olingan narxi * (so'm)</label>
+                    <input type="text" id="purchase_price" class="form-control" placeholder="0" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Sotib olingan sana *</label>
+                    <input type="date" id="purchase_date" class="form-control" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="addAnimalModal.hide()">
+                Bekor qilish
+            </button>
+            <button type="button" class="btn btn-success" onclick="saveAnimal()">
+                <i class="fas fa-save"></i> Saqlash
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const addAnimalModal = new chorvaApp.Modal('addAnimalModal');
+    let animals = [];
+    let filteredAnimals = [];
+    
+    // Load animals
+    async function loadAnimals() {
+        try {
+            animals = await chorvaApp.apiRequest('/api/animals');
+            filteredAnimals = [...animals];
+            renderAnimals();
+        } catch (error) {
+            console.error('Error loading animals:', error);
+        }
+    }
+    
+    // Render animals
+    function renderAnimals() {
+        const container = document.getElementById('animalsList');
+        const emptyState = document.getElementById('emptyState');
+        
+        if (filteredAnimals.length === 0) {
+            container.innerHTML = '';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        emptyState.style.display = 'none';
+        
+        container.innerHTML = filteredAnimals.map(animal => `
+            <div class="list-item swipeable" data-id="${animal.id}">
+                <div class="list-icon">
+                    ${getAnimalEmoji(animal.type)}
+                </div>
+                <div class="list-content">
+                    <div class="list-title">${animal.type} - ${animal.breed}</div>
+                    <div class="list-subtitle">
+                        ${animal.gender === 'Erkak' ? '♂️' : '♀️'} ${animal.gender} | 
+                        💰 ${chorvaApp.formatNumber(animal.purchase_price)} so'm
+                    </div>
+                    <div class="list-subtitle">
+                        📅 ${formatDate(animal.purchase_date)} | 
+                        <span class="badge badge-${animal.status === 'active' ? 'success' : 'danger'}">
+                            ${animal.status === 'active' ? '✅ Faol' : '❌ Sotilgan'}
+                        </span>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-icon btn-primary" onclick="editAnimal(${animal.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        // Add swipe actions
+        document.querySelectorAll('.swipeable').forEach(item => {
+            new chorvaApp.SwipeHandler(item, {
+                onSwipeLeft: () => {
+                    const id = item.dataset.id;
+                    deleteAnimal(id);
+                }
+            });
+        });
+    }
+    
+    // Search
+    chorvaApp.setupSearch('searchInput', (query) => {
+        if (!query) {
+            filteredAnimals = [...animals];
+        } else {
+            const q = query.toLowerCase();
+            filteredAnimals = animals.filter(a => 
+                a.type.toLowerCase().includes(q) ||
+                a.breed.toLowerCase().includes(q) ||
+                a.gender.toLowerCase().includes(q)
+            );
+        }
+        renderAnimals();
+    });
+    
+    // Save animal
+    async function saveAnimal() {
+        const form = document.getElementById('animalForm');
+        const id = document.getElementById('animalId').value;
+        
+        const data = {
+            type: document.getElementById('type').value,
+            breed: document.getElementById('breed').value,
+            gender: document.getElementById('gender').value,
+            birth_date: document.getElementById('birth_date').value || null,
+            weight: document.getElementById('weight').value || null,
+            purchase_price: chorvaApp.parseFormattedNumber(document.getElementById('purchase_price').value),
+            purchase_date: document.getElementById('purchase_date').value
+        };
+        
+        if (!data.type || !data.breed || !data.gender || !data.purchase_price || !data.purchase_date) {
+            chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+            chorvaApp.hapticFeedback([50, 100, 50]);
+            return;
+        }
+        
+        try {
+            if (id) {
+                await chorvaApp.apiRequest(`/api/animals/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                chorvaApp.showAlert('Hayvon yangilandi!', 'success');
+            } else {
+                await chorvaApp.apiRequest('/api/animals', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                chorvaApp.showAlert('Hayvon qo\'shildi!', 'success');
+            }
+            
+            addAnimalModal.hide();
+            form.reset();
+            loadAnimals();
+        } catch (error) {
+            chorvaApp.showAlert('Xatolik yuz berdi!', 'danger');
+        }
+    }
+    
+    // Edit animal
+    function editAnimal(id) {
+        const animal = animals.find(a => a.id == id);
+        if (!animal) return;
+        
+        document.getElementById('animalId').value = animal.id;
+        document.getElementById('type').value = animal.type;
+        document.getElementById('breed').value = animal.breed;
+        document.getElementById('gender').value = animal.gender;
+        document.getElementById('birth_date').value = animal.birth_date || '';
+        document.getElementById('weight').value = animal.weight || '';
+        document.getElementById('purchase_price').value = chorvaApp.formatNumber(animal.purchase_price);
+        document.getElementById('purchase_date').value = animal.purchase_date;
+        
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Hayvonni tahrirlash';
+        addAnimalModal.show();
+    }
+    
+    // Delete animal
+    async function deleteAnimal(id) {
+        const confirmed = await chorvaApp.confirmDelete('Hayvonni o\'chirmoqchimisiz?');
+        if (!confirmed) return;
+        
+        try {
+            await chorvaApp.apiRequest(`/api/animals/${id}`, { method: 'DELETE' });
+            chorvaApp.showAlert('Hayvon o\'chirildi!', 'success');
+            loadAnimals();
+        } catch (error) {
+            chorvaApp.showAlert('Xatolik yuz berdi!', 'danger');
+        }
+    }
+    
+    // Helpers
+    function getAnimalEmoji(type) {
+        const emojis = {
+            "Qo'y": "🐑",
+            "Echki": "🐐",
+            "Sigir": "🐄",
+            "Buzoq": "🐮",
+            "Tovuq": "🐔",
+            "O'rdak": "🦆"
+        };
+        return emojis[type] || "🐄";
+    }
+    
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('uz-UZ');
+    }
+    
+    // Set today's date as default
+    document.getElementById('purchase_date').valueAsDate = new Date();
+    
+    // Init
+    loadAnimals();
+    
+    // Pull to refresh
+    new chorvaApp.PullToRefresh(() => {
+        loadAnimals();
+    });
+</script>
+{% endblock %}

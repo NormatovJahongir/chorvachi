@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ t('vaccinations') }} - CHORVA FERMERI PRO{% endblock %}
+{% block content %}
+<div id="vaccinationsList"></div>
+<div id="emptyState" class="empty-state" style="display: none;">
+    <div class="empty-icon"><i class="fas fa-syringe"></i></div>
+    <div class="empty-title">Vaksinatsiya yo'q</div>
+</div>
+<button class="fab" onclick="addVaccinationModal.show()"><i class="fas fa-plus"></i></button>
+<div class="modal" id="addVaccinationModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-plus"></i> Vaksinatsiya qo'shish</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="vaccinationForm">
+                <div class="form-group">
+                    <label class="form-label">Hayvon *</label>
+                    <select id="animal_id" class="form-control" required>
+                        <option value="">Tanlang</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vaksina nomi *</label>
+                    <input type="text" id="vaccine_name" class="form-control" placeholder="Masalan: Emkar" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vaksinatsiya sanasi *</label>
+                    <input type="date" id="vaccination_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Keyingi sana</label>
+                    <input type="date" id="next_date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Veterinar</label>
+                    <input type="text" id="veterinarian" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Narxi (so'm)</label>
+                    <input type="text" id="cost" class="form-control">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="addVaccinationModal.hide()">Bekor qilish</button>
+            <button class="btn btn-success" onclick="saveVaccination()"><i class="fas fa-save"></i> Saqlash</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const addVaccinationModal = new chorvaApp.Modal('addVaccinationModal');
+let vaccinations = [], animals = [];
+
+async function loadData() {
+    try {
+        [vaccinations, animals] = await Promise.all([
+            chorvaApp.apiRequest('/api/vaccinations'),
+            chorvaApp.apiRequest('/api/animals')
+        ]);
+        renderVaccinations();
+        populateAnimals();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderVaccinations() {
+    const container = document.getElementById('vaccinationsList');
+    const emptyState = document.getElementById('emptyState');
+    
+    if (vaccinations.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    container.innerHTML = vaccinations.map(v => {
+        const isUpcoming = v.next_date && new Date(v.next_date) > new Date();
+        return `
+            <div class="list-item">
+                <div class="list-icon">
+                    <i class="fas fa-syringe"></i>
+                </div>
+                <div class="list-content">
+                    <div class="list-title">${v.vaccine_name}</div>
+                    <div class="list-subtitle">
+                        🐄 ${v.animal_type} - ${v.breed}<br>
+                        📅 ${new Date(v.vaccination_date).toLocaleDateString('uz-UZ')}
+                        ${v.next_date ? '<br>🔔 Keyingi: ' + new Date(v.next_date).toLocaleDateString('uz-UZ') : ''}
+                        ${v.cost ? '<br>💰 ' + chorvaApp.formatNumber(v.cost) + ' so\'m' : ''}
+                    </div>
+                </div>
+                ${isUpcoming ? '<span class="badge badge-warning">Kelgusi</span>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function populateAnimals() {
+    document.getElementById('animal_id').innerHTML = 
+        '<option value="">Tanlang</option>' +
+        animals.filter(a => a.status === 'active').map(a => 
+            `<option value="${a.id}">${a.type} - ${a.breed}</option>`
+        ).join('');
+}
+
+async function saveVaccination() {
+    const data = {
+        animal_id: document.getElementById('animal_id').value,
+        vaccine_name: document.getElementById('vaccine_name').value,
+        vaccination_date: document.getElementById('vaccination_date').value,
+        next_date: document.getElementById('next_date').value || null,
+        veterinarian: document.getElementById('veterinarian').value || null,
+        cost: chorvaApp.parseFormattedNumber(document.getElementById('cost').value) || null
+    };
+    
+    if (!data.animal_id || !data.vaccine_name || !data.vaccination_date) {
+        chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+        return;
+    }
+    
+    try {
+        await chorvaApp.apiRequest('/api/vaccinations', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        chorvaApp.showAlert('Vaksinatsiya qo\'shildi!', 'success');
+        addVaccinationModal.hide();
+        document.getElementById('vaccinationForm').reset();
+        loadData();
+    } catch (error) {
+        chorvaApp.showAlert('Xatolik!', 'danger');
+    }
+}
+
+document.getElementById('vaccination_date').valueAsDate = new Date();
+loadData();
+new chorvaApp.PullToRefresh(() => loadData());
+</script>
+{% endblock %}

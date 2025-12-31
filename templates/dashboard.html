@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('dashboard') }} - CHORVA FERMERI PRO{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <!-- Total Animals -->
+    <div class="stat-card">
+        <div class="stat-icon animals">
+            <i class="fas fa-cow"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t('total_animals') }}</div>
+            <div class="stat-value">{{ animals_stats.total }}</div>
+        </div>
+    </div>
+    
+    <!-- Active Animals -->
+    <div class="stat-card">
+        <div class="stat-icon income">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t('active_animals') }}</div>
+            <div class="stat-value">{{ animals_stats.active }}</div>
+        </div>
+    </div>
+    
+    <!-- Total Income -->
+    <div class="stat-card">
+        <div class="stat-icon income">
+            <i class="fas fa-arrow-up"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t('total_income') }}</div>
+            <div class="stat-value" id="totalIncome">{{ '{:,.0f}'.format(finance_stats.income) }}</div>
+            <div class="text-muted" style="font-size: 0.75rem;">{{ t('sum') }}</div>
+        </div>
+    </div>
+    
+    <!-- Total Expense -->
+    <div class="stat-card">
+        <div class="stat-icon expense">
+            <i class="fas fa-arrow-down"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t('total_expense') }}</div>
+            <div class="stat-value" id="totalExpense">{{ '{:,.0f}'.format(finance_stats.expense) }}</div>
+            <div class="text-muted" style="font-size: 0.75rem;">{{ t('sum') }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Net Profit Card -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-chart-line"></i>
+            {{ t('net_profit') }}
+        </div>
+    </div>
+    <div class="card-body">
+        <div style="text-align: center; padding: 20px 0;">
+            <div style="font-size: 2rem; font-weight: 700; color: {{ '#2ecc71' if finance_stats.profit >= 0 else '#e74c3c' }};">
+                <span id="netProfit">{{ '{:,.0f}'.format(finance_stats.profit) }}</span> {{ t('sum') }}
+            </div>
+            <div class="text-muted" style="margin-top: 8px;">
+                <i class="fas fa-{{ 'arrow-up text-success' if finance_stats.profit >= 0 else 'arrow-down text-danger' }}"></i>
+                {{ 'Foyda' if finance_stats.profit >= 0 else 'Zarar' }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-bolt"></i>
+            Tez amallar
+        </div>
+    </div>
+    <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <button class="btn btn-primary" onclick="location.href='/animals'">
+                <i class="fas fa-cow"></i>
+                {{ t('animals') }}
+            </button>
+            <button class="btn btn-primary" onclick="location.href='/sales'">
+                <i class="fas fa-money-bill-wave"></i>
+                {{ t('sales') }}
+            </button>
+            <button class="btn btn-primary" onclick="location.href='/feed'">
+                <i class="fas fa-seedling"></i>
+                {{ t('feed') }}
+            </button>
+            <button class="btn btn-primary" onclick="location.href='/butchers'">
+                <i class="fas fa-user-tie"></i>
+                {{ t('butchers') }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-chart-pie"></i>
+            Moliyaviy ko'rsatkichlar
+        </div>
+    </div>
+    <div class="card-body">
+        <canvas id="financeChart" style="max-height: 250px;"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
+<script>
+    // Finance Chart
+    const ctx = document.getElementById('financeChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['{{ t("income") }}', '{{ t("expense") }}'],
+                datasets: [{
+                    data: [{{ finance_stats.income }}, {{ finance_stats.expense }}],
+                    backgroundColor: ['#2ecc71', '#e74c3c'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Pull to refresh
+    new chorvaApp.PullToRefresh(() => {
+        location.reload();
+    });
+</script>
+{% endblock %}
