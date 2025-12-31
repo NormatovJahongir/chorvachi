@@ -11,8 +11,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# WEBAPP URL - NGROK
-WEBAPP_URL = "https://venational-devyn-monarchistic.ngrok-free.dev"
+# WEBAPP URL - RENDER.COM
+WEBAPP_URL = "https://chorvachi.onrender.com"
 
 # Conversation states
 PHONE, FULLNAME = range(2)
