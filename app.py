@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import database as db
 from config import SECRET_KEY, TRANSLATIONS
 from datetime import datetime
+import threading
+import bot  # Botni ishga tushirish uchun bot.py faylini import qilamiz
+import os
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -411,13 +414,24 @@ def get_finance_stats_route():
     return jsonify(stats)
 
 if __name__ == '__main__':
+    # 1. Ma'lumotlar bazasini tekshirish
     db.init_db()
+    
+    # 2. Telegram Botni alohida Thread (oqim) ichida ishga tushirish
+    # Bu orqali Flask va Bot bir vaqtda ishlaydi
+    def run_bot():
+        print("🤖 Telegram bot ishga tushmoqda...")
+        bot.main() # bot.py ichidagi main() funksiyasini chaqiradi
+
+    bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True # Flask to'xtasa, bot ham to'xtaydi
+    bot_thread.start()
+
     print("=" * 50)
     print("🌐 CHORVA FERMERI PRO WEB SERVER")
     print("=" * 50)
-    print("💻 Local: http://localhost:5000")
-    print("🌍 Ngrok: https://venational-devyn-monarchistic.ngrok-free.dev")
-    print("=" * 50)
-    print("📱 Telegram Web App: AVTOMATIK LOGIN")
-    print("=" * 50)
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    
+    # 3. Render portini aniqlash va Flaskni yurgizish
+    # Render avtomatik PORT beradi, agar bermasa 5000 ishlatiladi
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
