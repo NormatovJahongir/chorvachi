@@ -413,6 +413,10 @@ def get_finance_stats_route():
     stats = db.get_finance_stats(int(user_id))
     return jsonify(stats)
 
+@app.route('/ping')
+def ping():
+    return "Bot is alive!", 200
+    
 if __name__ == '__main__':
     # 1. Ma'lumotlar bazasini tekshirish
     db.init_db()
