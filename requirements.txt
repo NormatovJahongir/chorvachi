@@ -3,3 +3,4 @@ Werkzeug
 python-telegram-bot
 python-dotenv
 gunicorn
+psycopg2-binary
