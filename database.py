@@ -548,3 +548,21 @@ def get_finance_stats(user_id):
         'expense': expense,
         'profit': income - expense
     }
+    
+def delete_user_completely(telegram_id):
+    """Foydalanuvchi va unga tegishli barcha ma'lumotlarni o'chirish"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Avval moliya va hayvonlarni o'chiramiz
+        cursor.execute('DELETE FROM finance WHERE user_id = %s', (telegram_id,))
+        cursor.execute('DELETE FROM animals WHERE user_id = %s', (telegram_id,))
+        # Keyin foydalanuvchining o'zini
+        cursor.execute('DELETE FROM users WHERE telegram_id = %s', (telegram_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"O'chirishda xato: {e}")
+    finally:
+        cursor.close()
+        conn.close()
