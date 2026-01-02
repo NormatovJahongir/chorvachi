@@ -50,6 +50,14 @@ def login():
                 return render_template('login.html', error='Foydalanuvchi topilmadi. Telegram botda /start bosing.')
     return render_template('login.html')
 
+# app.py ichida namuna
+@app.route('/delete-animal/<int:id>')
+def delete_animal_route(id):
+    user_id = session.get('user_id')
+    if user_id:
+        db.delete_animal(id, int(user_id))
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 @app.route('/logout')
 def logout():
     """Logout"""
