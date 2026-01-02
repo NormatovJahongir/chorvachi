@@ -1,18 +1,15 @@
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
+import os
 
-DB_NAME = 'chorva_fermeri.db'
+# Render'dagi Database URL'ni muhit o'zgaruvchisidan olish
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-def get_db():
-    """Database connection"""
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
+def get_db_connection():
+    """PostgreSQL bazasiga ulanish yaratish"""
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
-
-def init_db():
-    """Database yaratish"""
-    conn = get_db()
-    cursor = conn.cursor()
 
 def init_db():
     """Database jadvallarini yaratish (PostgreSQL sintaksisida)"""
