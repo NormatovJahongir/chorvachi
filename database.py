@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 
 # Render'dagi Database URL'ni muhit o'zgaruvchisidan olish
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get('postgresql://root:opjMw5fWsye72lcCojivLBpdXIBNYYPJ@dpg-d5bp09je5dus73fsafag-a/malumot_u3o0')
 
 def get_db_connection():
     """PostgreSQL bazasiga ulanish yaratish"""
