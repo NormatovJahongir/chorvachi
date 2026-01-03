@@ -55,7 +55,7 @@ def login():
 def delete_animal_simple_route(id):
     user_id = session.get('user_id')
     if user_id:
-        db.delete_animal(id))
+        db.delete_animal(id)
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 @app.route('/logout')
