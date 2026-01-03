@@ -52,10 +52,10 @@ def login():
 
 # app.py ichida namuna
 @app.route('/delete-animal/<int:id>')
-def delete_animal_route(id):
+def delete_animal_simple_route(id):
     user_id = session.get('user_id')
     if user_id:
-        db.delete_animal(id, int(user_id))
+        db.delete_animal(id))
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 @app.route('/logout')
@@ -194,7 +194,7 @@ def update_animal(animal_id):
     return jsonify({'success': True})
 
 @app.route('/api/animals/<int:animal_id>', methods=['DELETE'])
-def delete_animal_route(animal_id):
+def api_delete_animal_route(animal_id):
     """Hayvonni o'chirish"""
     db.delete_animal(animal_id)
     return jsonify({'success': True})
