@@ -162,10 +162,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Amal bekor qilindi.")
     return ConversationHandler.END
 
+# 1. Dashboard funksiyasidagi sonlar formatini tekshirish
 async def dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Dashboard"""
-    telegram_id = update.effective_user.id
+    telegram_id = int(update.effective_user.id) # Aniq BIGINT format uchun
     user = db.get_user(telegram_id)
+    # ... qolgan qismi to'g'ri ...
     if not user:
         await update.message.reply_text("❌ Siz ro'yxatdan o'tmagansiz. /start bosing.")
         return
@@ -231,7 +232,7 @@ async def butchers_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = user.get('language', 'uz') if user else 'uz'
     t = lambda k: get_translation(lang, k)
     
-    butchers = db.get_butchers()
+    butchers = db.get_butchers() or []
     if not butchers:
         await update.message.reply_text(f"❌ {t('no_data')}")
         return
@@ -328,11 +329,11 @@ def main():
     application.add_handler(CallbackQueryHandler(language_callback, pattern='^lang_'))
     
     # Klaviatura
-    application.add_handler(MessageHandler(filters.Regex('🏠'), dashboard))
-    application.add_handler(MessageHandler(filters.Regex('🐄'), animals_list))
-    application.add_handler(MessageHandler(filters.Regex('👤'), butchers_list))
-    application.add_handler(MessageHandler(filters.Regex('🌐'), language_change))
-    application.add_handler(MessageHandler(filters.Regex('💰|🌾|💉|📊'), dashboard))
+    application.add_handler(MessageHandler(filters.Regex(r'^🏠'), dashboard))
+    application.add_handler(MessageHandler(filters.Regex(r'^🐄'), animals_list))
+    application.add_handler(MessageHandler(filters.Regex(r'^👤'), butchers_list))
+    application.add_handler(MessageHandler(filters.Regex(r'^🌐'), language_change))
+    application.add_handler(MessageHandler(filters.Regex(r'^(💰|🌾|💉|📊)'), dashboard))
     
     logger.info("=" * 60)
     logger.info("🤖 CHORVA FERMERI PRO BOT - NGROK BILAN")
