@@ -3,7 +3,7 @@ services:
     name: chorva-fermeri-bot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app & python telegram_bot.py
+    startCommand: gunicorn app:app & python bot.py
     envVars:
       - key: BOT_TOKEN
         sync: false
