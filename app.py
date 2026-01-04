@@ -51,20 +51,18 @@ def login():
 
 @app.route('/logout')
 def logout():
-    """Tizimdan chiqish"""
     session.clear()
     return redirect(url_for('login'))
 
 @app.route('/webapp')
 def webapp():
-    """Telegram Web App orqali avtomatik kirish"""
     user_id = request.args.get('user_id')
     if not user_id:
         return render_template('webapp_init.html')
     
     user = db.get_user(int(user_id))
     if not user:
-        return f"Foydalanuvchi topilmadi (ID: {user_id}). Botda /start bosing.", 404
+        return f"Foydalanuvchi topilmadi. Botda /start bosing.", 404
     
     session['user_id'] = user_id
     session['language'] = user.get('language', 'uz')
@@ -127,9 +125,7 @@ def manage_animal(animal_id):
     if request.method == 'DELETE':
         db.delete_animal(animal_id)
         return jsonify({'success': True})
-    
-    data = request.json
-    db.update_animal(animal_id, data)
+    db.update_animal(animal_id, request.json)
     return jsonify({'success': True})
 
 # --- BUTCHERS API ---
@@ -137,40 +133,36 @@ def manage_animal(animal_id):
 def handle_butchers():
     if request.method == 'GET':
         return jsonify(db.get_butchers(request.args.get('search')))
-    
     data = request.json
     bid = db.add_butcher(name=data['name'], phone=data['phone'], address=data.get('address'))
     return jsonify({'success': True, 'id': bid})
 
-@app.route('/api/butchers/<int:butcher_id>', methods=['PUT', 'DELETE'])
-def manage_butcher(butcher_id):
-    if request.method == 'DELETE':
-        db.delete_butcher(butcher_id)
-    else:
-        db.update_butcher(butcher_id, **request.json)
-    return jsonify({'success': True})
-
-# --- SALES API ---
-@app.route('/api/sales', methods=['GET', 'POST'])
-def handle_sales():
+# --- FINANCE API (MOLIYA QISMI TUZATILDI) ---
+@app.route('/api/finance', methods=['GET', 'POST'])
+def handle_finance():
     user_id = session.get('user_id')
     if not user_id: return jsonify({'error': 'Unauthorized'}), 401
     
     if request.method == 'GET':
-        return jsonify(db.get_sales(int(user_id)))
+        return jsonify(db.get_finance(int(user_id)))
     
     data = request.json
-    sale_id = db.add_sale(
-        user_id=int(user_id), animal_id=int(data['animal_id']),
-        butcher_id=int(data['butcher_id']) if data.get('butcher_id') else None,
-        sale_date=data['sale_date'], sale_price=float(data['sale_price']),
-        buyer_name=data.get('buyer_name'), payment_type=data.get('payment_type', 'cash')
+    db.add_finance(
+        user_id=int(user_id), finance_type=data['type'], amount=float(data['amount']),
+        category=data['category'], description=data.get('description'), date=data['date']
     )
-    return jsonify({'success': True, 'id': sale_id})
+    return jsonify({'success': True})
 
-@app.route('/api/sales/<int:sale_id>', methods=['DELETE'])
-def delete_sale(sale_id):
-    db.delete_sale(sale_id)
+@app.route('/api/finance/stats', methods=['GET'])
+def get_finance_stats_api():
+    """Grafiklar uchun statistika ma'lumotlarini olish"""
+    user_id = session.get('user_id')
+    if not user_id: return jsonify({'income': 0, 'expense': 0, 'profit': 0})
+    return jsonify(db.get_finance_stats(int(user_id)))
+
+@app.route('/api/finance/<int:finance_id>', methods=['DELETE'])
+def delete_finance(finance_id):
+    db.delete_finance(finance_id)
     return jsonify({'success': True})
 
 # --- FEED API ---
@@ -178,10 +170,8 @@ def delete_sale(sale_id):
 def handle_feed():
     user_id = session.get('user_id')
     if not user_id: return jsonify({'error': 'Unauthorized'}), 401
-    
     if request.method == 'GET':
         return jsonify(db.get_feed(int(user_id)))
-    
     data = request.json
     fid = db.add_feed(
         user_id=int(user_id), name=data['name'], quantity=float(data['quantity']),
@@ -202,10 +192,8 @@ def manage_feed(feed_id):
 def handle_vaccinations():
     user_id = session.get('user_id')
     if not user_id: return jsonify({'error': 'Unauthorized'}), 401
-    
     if request.method == 'GET':
         return jsonify(db.get_vaccinations(int(user_id)))
-    
     data = request.json
     vid = db.add_vaccination(
         user_id=int(user_id), animal_id=int(data['animal_id']),
@@ -223,27 +211,6 @@ def manage_vaccination(vac_id):
         db.update_vaccination(vac_id, request.json)
     return jsonify({'success': True})
 
-# --- FINANCE API ---
-@app.route('/api/finance', methods=['GET', 'POST'])
-def handle_finance():
-    user_id = session.get('user_id')
-    if not user_id: return jsonify({'error': 'Unauthorized'}), 401
-    
-    if request.method == 'GET':
-        return jsonify(db.get_finance(int(user_id)))
-    
-    data = request.json
-    db.add_finance(
-        user_id=int(user_id), finance_type=data['type'], amount=float(data['amount']),
-        category=data['category'], description=data.get('description'), date=data['date']
-    )
-    return jsonify({'success': True})
-
-@app.route('/api/finance/<int:finance_id>', methods=['DELETE'])
-def delete_finance(finance_id):
-    db.delete_finance(finance_id)
-    return jsonify({'success': True})
-
 @app.route('/ping')
 def ping(): return "Bot is alive!", 200
 
@@ -252,10 +219,12 @@ def ping(): return "Bot is alive!", 200
 if __name__ == '__main__':
     db.init_db()
     
-    # Telegram Botni alohida oqimda ishga tushirish
     def run_bot():
         print("🤖 Telegram bot ishga tushmoqda...")
-        bot.main()
+        try:
+            bot.main()
+        except Exception as e:
+            print(f"Botda xatolik: {e}")
 
     bot_thread = threading.Thread(target=run_bot)
     bot_thread.daemon = True
