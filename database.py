@@ -242,14 +242,37 @@ def update_animal(animal_id, **kwargs):
     cursor.close()
     conn.close()
 
+# database.py faylida delete_animal funksiyasini quyidagiga almashtiring:
+
 def delete_animal(animal_id):
-    """Hayvonni o'chirish"""
+    """Hayvonni o'chirish va moliya jadvalidagi bog'liq yozuvni ham o'chirish"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM animals WHERE id = %s', (animal_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        # 1. Avval hayvon ma'lumotlarini olamiz (moliya yozuvini topish uchun)
+        cursor.execute('SELECT user_id, type, breed, purchase_price FROM animals WHERE id = %s', (animal_id,))
+        animal = cursor.fetchone()
+        
+        if animal:
+            # 2. Moliya jadvalidan ushbu hayvonga tegishli xarajatni o'chiramiz
+            # Qidiruv: hayvon turi va zoti tavsifda bo'lishi kerak
+            description_pattern = f"%{animal['type']} - {animal['breed']}%"
+            cursor.execute('''
+                DELETE FROM finance 
+                WHERE user_id = %s AND amount = %s AND category = 'animal_purchase' 
+                AND description LIKE %s
+            ''', (animal['user_id'], animal['purchase_price'], description_pattern))
+
+        # 3. Hayvonni o'zini o'chiramiz
+        cursor.execute('DELETE FROM animals WHERE id = %s', (animal_id,))
+        
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 def get_animals_stats(user_id):
     """Hayvonlar statistikasi"""
