@@ -362,6 +362,16 @@ def delete_feed_route(feed_id):
     """Ozuqani o'chirish"""
     db.delete_feed(feed_id)
     return jsonify({'success': True})
+    
+    # Ozuqa tahrirlash va o'chirish
+@app.route('/api/feed/<int:feed_id>', methods=['PUT', 'DELETE'])
+def manage_feed(feed_id):
+    if request.method == 'PUT':
+        db.update_feed(feed_id, request.json)
+        return jsonify({'success': True})
+    elif request.method == 'DELETE':
+        db.delete_feed(feed_id)
+        return jsonify({'success': True})
 
 # ==================== VACCINATIONS API ====================
 
@@ -399,6 +409,16 @@ def delete_vaccination_route(vaccination_id):
     """Vaksinatsiyani o'chirish"""
     db.delete_vaccination(vaccination_id)
     return jsonify({'success': True})
+    
+    # Vaksinatsiya tahrirlash va o'chirish
+@app.route('/api/vaccinations/<int:vac_id>', methods=['PUT', 'DELETE'])
+def manage_vaccination(vac_id):
+    if request.method == 'PUT':
+        db.update_vaccination(vac_id, request.json)
+        return jsonify({'success': True})
+    elif request.method == 'DELETE':
+        db.delete_vaccination(vac_id)
+        return jsonify({'success': True})
 
 # ==================== FINANCE API ====================
 
