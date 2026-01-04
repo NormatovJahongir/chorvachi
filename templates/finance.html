@@ -180,3 +180,8 @@ loadFinance();
 new chorvaApp.PullToRefresh(() => loadFinance());
 </script>
 {% endblock %}
+<td>
+    <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('finance', '{{ f.id }}')">
+        ❌ O'chirish
+    </button>
+</td>
