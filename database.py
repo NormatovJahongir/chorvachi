@@ -479,15 +479,46 @@ def add_feed(user_id, name, quantity, unit_price, supplier=None, feed_date=None)
     cursor.close()
     conn.close()
     return feed_id
-
-def delete_feed(feed_id):
-    """Ozuqani o'chirish"""
+    
+def update_feed(feed_id, data):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM feed WHERE id = %s', (feed_id,))
+    cursor.execute('''
+        UPDATE feed SET feed_name=%s, quantity=%s, unit_price=%s, 
+        total_price=%s, supplier=%s, feed_date=%s 
+        WHERE id=%s''',
+        (data['feed_name'], data['quantity'], data['unit_price'], 
+         data['total_price'], data['supplier'], data['feed_date'], feed_id))
     conn.commit()
     cursor.close()
     conn.close()
+    
+def delete_feed(feed_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # 1. Avval ozuqa ma'lumotini olamiz
+        cursor.execute('SELECT user_id, feed_name, total_price FROM feed WHERE id = %s', (feed_id,))
+        feed = cursor.fetchone()
+        
+        if feed:
+            # 2. Moliya jadvalidan ushbu ozuqa xarajatini o'chiramiz
+            desc = f"%{feed['feed_name']}%"
+            cursor.execute('''
+                DELETE FROM finance 
+                WHERE user_id = %s AND amount = %s AND category = 'feed_purchase' 
+                AND description LIKE %s
+            ''', (feed['user_id'], feed['total_price'], desc))
+
+        # 3. Ozuqani o'zini o'chiramiz
+        cursor.execute('DELETE FROM feed WHERE id = %s', (feed_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 # ==================== VACCINATIONS ====================
 
@@ -528,6 +559,19 @@ def add_vaccination(user_id, animal_id, vaccine_name, vaccination_date, next_dat
     cursor.close()
     conn.close()
     return vaccination_id
+    
+    def update_vaccination(vac_id, data):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE vaccinations SET vaccine_name=%s, vaccination_date=%s, 
+        next_date=%s, veterinarian=%s, cost=%s 
+        WHERE id=%s''',
+        (data['vaccine_name'], data['vaccination_date'], data['next_date'], 
+         data['veterinarian'], data['cost'], vac_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def delete_vaccination(vaccination_id):
     """Vaksinatsiyani o'chirish"""
