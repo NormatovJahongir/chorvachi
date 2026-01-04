@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ t('finance') }} - CHORVA FERMERI PRO{% endblock %}
+
 {% block content %}
 <div class="stats-grid">
     <div class="stat-card">
@@ -21,6 +22,7 @@
         </div>
     </div>
 </div>
+
 <div class="card">
     <div class="card-header">
         <div class="card-title"><i class="fas fa-filter"></i> Filtr</div>
@@ -36,17 +38,21 @@
         </div>
     </div>
 </div>
+
 <div id="financeList"></div>
+
 <div id="emptyState" class="empty-state" style="display: none;">
     <div class="empty-icon"><i class="fas fa-chart-line"></i></div>
     <div class="empty-title">Ma'lumotlar yo'q</div>
 </div>
+
 <button class="fab" onclick="addFinanceModal.show()"><i class="fas fa-plus"></i></button>
+
 <div class="modal" id="addFinanceModal">
     <div class="modal-content">
         <div class="modal-header">
             <h3 class="modal-title"><i class="fas fa-plus"></i> Moliya qo'shish</h3>
-            <button class="modal-close"><i class="fas fa-times"></i></button>
+            <button class="modal-close" onclick="addFinanceModal.hide()"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <form id="financeForm">
@@ -59,21 +65,21 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Miqdor * (so'm)</label>
-                    <input type="text" id="amount" class="form-control" required>
+                    <input type="text" id="amount" class="form-control" placeholder="0" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Kategoriya *</label>
                     <select id="category" class="form-control" required>
                         <option value="animal_sale">Hayvon sotildi</option>
                         <option value="animal_purchase">Hayvon sotib olindi</option>
-                        <option value="feed_purchase">Ozuqa</option>
+                        <option value="feed_purchase">Ozuqa xaridi</option>
                         <option value="medicine">Dori-darmon</option>
                         <option value="other">Boshqa</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Izoh</label>
-                    <textarea id="description" class="form-control" rows="2"></textarea>
+                    <textarea id="description" class="form-control" rows="2" placeholder="Ixtiyoriy izoh..."></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Sana *</label>
@@ -88,12 +94,15 @@
     </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
+// Modalni va asosiy o'zgaruvchilarni e'lon qilish
 const addFinanceModal = new chorvaApp.Modal('addFinanceModal');
 let financeData = [];
 let currentFilter = null;
 
+// Ma'lumotlarni yuklash
 async function loadFinance() {
     try {
         financeData = await chorvaApp.apiRequest('/api/finance');
@@ -104,10 +113,11 @@ async function loadFinance() {
         
         renderFinance();
     } catch (error) {
-        console.error(error);
+        console.error("Yuklashda xato:", error);
     }
 }
 
+// Filtrlash logikasi
 function filterType(type) {
     currentFilter = currentFilter === type ? null : type;
     
@@ -117,6 +127,7 @@ function filterType(type) {
     renderFinance();
 }
 
+// Ro'yxatni chizish (O'chirish tugmasi bilan)
 function renderFinance() {
     const container = document.getElementById('financeList');
     const emptyState = document.getElementById('emptyState');
@@ -131,33 +142,40 @@ function renderFinance() {
     
     emptyState.style.display = 'none';
     container.innerHTML = filtered.map(f => `
-        <div class="list-item">
-            <div class="list-icon" style="background: rgba(${f.type === 'income' ? '46,204,113' : '231,76,60'}, 0.1); color: ${f.type === 'income' ? '#2ecc71' : '#e74c3c'};">
-                <i class="fas fa-${f.type === 'income' ? 'arrow-up' : 'arrow-down'}"></i>
-            </div>
-            <div class="list-content">
-                <div class="list-title">${f.category.replace('_', ' ')}</div>
-                <div class="list-subtitle">
-                    💰 ${chorvaApp.formatNumber(f.amount)} so'm<br>
-                    📅 ${new Date(f.date).toLocaleDateString('uz-UZ')}
-                    ${f.description ? '<br>📝 ' + f.description : ''}
+        <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee; background: white; border-radius: 8px;">
+            <div style="display: flex; align-items: center;">
+                <div class="list-icon" style="background: rgba(${f.type === 'income' ? '46,204,113' : '231,76,60'}, 0.1); color: ${f.type === 'income' ? '#2ecc71' : '#e74c3c'}; min-width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-${f.type === 'income' ? 'arrow-up' : 'arrow-down'}"></i>
+                </div>
+                <div class="list-content" style="margin-left: 15px;">
+                    <div class="list-title" style="font-weight: bold; text-transform: capitalize;">${f.category.replace(/_/g, ' ')}</div>
+                    <div class="list-subtitle" style="font-size: 0.9em; color: #666;">
+                        💰 ${chorvaApp.formatNumber(f.amount)} so'm<br>
+                        📅 ${new Date(f.date).toLocaleDateString('uz-UZ')}
+                        ${f.description ? '<br>📝 ' + f.description : ''}
+                    </div>
                 </div>
             </div>
+            <button class="btn btn-sm text-danger" onclick="deleteFinanceItem(${f.id})" style="background: none; border: none; font-size: 1.2rem;">
+                <i class="fas fa-trash-alt"></i>
+            </button>
         </div>
     `).join('');
 }
 
+// Yangi moliya yozuvini saqlash
 async function saveFinance() {
+    const amountRaw = document.getElementById('amount').value;
     const data = {
         type: document.getElementById('type').value,
-        amount: chorvaApp.parseFormattedNumber(document.getElementById('amount').value),
+        amount: chorvaApp.parseFormattedNumber(amountRaw),
         category: document.getElementById('category').value,
         description: document.getElementById('description').value || null,
         date: document.getElementById('date').value
     };
     
     if (!data.amount || !data.date) {
-        chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+        chorvaApp.showAlert('Barcha kerakli maydonlarni to\'ldiring!', 'warning');
         return;
     }
     
@@ -166,22 +184,46 @@ async function saveFinance() {
             method: 'POST',
             body: JSON.stringify(data)
         });
-        chorvaApp.showAlert('Qo\'shildi!', 'success');
+        chorvaApp.showAlert('Muvaffaqiyatli qo\'shildi!', 'success');
         addFinanceModal.hide();
         document.getElementById('financeForm').reset();
+        document.getElementById('date').valueAsDate = new Date(); // Sanani qayta tiklash
         loadFinance();
     } catch (error) {
-        chorvaApp.showAlert('Xatolik!', 'danger');
+        chorvaApp.showAlert('Saqlashda xatolik yuz berdi!', 'danger');
     }
 }
 
+// Moliya yozuvini o'chirish
+async function deleteFinanceItem(id) {
+    if (confirm("Ushbu yozuvni o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi.")) {
+        try {
+            const response = await fetch(`/api/finance/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                chorvaApp.showAlert('O\'chirildi!', 'success');
+                loadFinance();
+            } else {
+                chorvaApp.showAlert('Xatolik yuz berdi', 'danger');
+            }
+        } catch (error) {
+            chorvaApp.showAlert('Server bilan bog\'lanishda xato!', 'danger');
+        }
+    }
+}
+
+// Sahifa yuklanganda ishlash
 document.getElementById('date').valueAsDate = new Date();
 loadFinance();
-new chorvaApp.PullToRefresh(() => loadFinance());
+
+// Narx kiritishda avtomatik formatlash (ixtiyoriy, agar chorvaApp da bo'lsa)
+document.getElementById('amount').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    e.target.value = chorvaApp.formatNumber(value);
+});
 </script>
 {% endblock %}
-<td>
-    <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('finance', '{{ f.id }}')">
-        ❌ O'chirish
-    </button>
-</td>
