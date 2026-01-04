@@ -4,14 +4,16 @@
 <div id="vaccinationsList"></div>
 <div id="emptyState" class="empty-state" style="display: none;">
     <div class="empty-icon"><i class="fas fa-syringe"></i></div>
-    <div class="empty-title">Vaksinatsiya yo'q</div>
+    <div class="empty-title">Vaksinatsiya ma'lumotlari topilmadi</div>
 </div>
+
 <button class="fab" onclick="addVaccinationModal.show()"><i class="fas fa-plus"></i></button>
+
 <div class="modal" id="addVaccinationModal">
     <div class="modal-content">
         <div class="modal-header">
             <h3 class="modal-title"><i class="fas fa-plus"></i> Vaksinatsiya qo'shish</h3>
-            <button class="modal-close"><i class="fas fa-times"></i></button>
+            <button class="modal-close" onclick="addVaccinationModal.hide()"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <form id="vaccinationForm">
@@ -39,7 +41,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Narxi (so'm)</label>
-                    <input type="text" id="cost" class="form-control">
+                    <input type="text" id="cost" class="form-control" placeholder="0">
                 </div>
             </form>
         </div>
@@ -50,6 +52,7 @@
     </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
 const addVaccinationModal = new chorvaApp.Modal('addVaccinationModal');
@@ -64,7 +67,7 @@ async function loadData() {
         renderVaccinations();
         populateAnimals();
     } catch (error) {
-        console.error(error);
+        console.error("Ma'lumot yuklashda xato:", error);
     }
 }
 
@@ -82,28 +85,33 @@ function renderVaccinations() {
     container.innerHTML = vaccinations.map(v => {
         const isUpcoming = v.next_date && new Date(v.next_date) > new Date();
         return `
-            <div class="list-item">
-                <div class="list-icon">
-                    <i class="fas fa-syringe"></i>
-                </div>
-                <div class="list-content">
-                    <div class="list-title">${v.vaccine_name}</div>
-                    <div class="list-subtitle">
-                        🐄 ${v.animal_type} - ${v.breed}<br>
-                        📅 ${new Date(v.vaccination_date).toLocaleDateString('uz-UZ')}
-                        ${v.next_date ? '<br>🔔 Keyingi: ' + new Date(v.next_date).toLocaleDateString('uz-UZ') : ''}
-                        ${v.cost ? '<br>💰 ' + chorvaApp.formatNumber(v.cost) + ' so\'m' : ''}
+            <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; border-left: 4px solid #3498db;">
+                <div style="display: flex; align-items: center;">
+                    <div class="list-icon" style="color: #3498db; min-width: 40px;"><i class="fas fa-syringe"></i></div>
+                    <div class="list-content">
+                        <div class="list-title" style="font-weight: bold;">${v.vaccine_name}</div>
+                        <div class="list-subtitle" style="font-size: 0.85rem; color: #666;">
+                            🐄 ${v.animal_type} (${v.breed})<br>
+                            📅 Sana: ${new Date(v.vaccination_date).toLocaleDateString('uz-UZ')}
+                            ${v.next_date ? '<br>🔔 Keyingi: <span style="color: #e67e22">' + new Date(v.next_date).toLocaleDateString('uz-UZ') + '</span>' : ''}
+                            ${v.cost ? '<br>💰 Narxi: ' + chorvaApp.formatNumber(v.cost) + ' so\'m' : ''}
+                        </div>
                     </div>
                 </div>
-                ${isUpcoming ? '<span class="badge badge-warning">Kelgusi</span>' : ''}
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                    ${isUpcoming ? '<span class="badge" style="background: #fff3cd; color: #856404; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;">Kelgusi</span>' : ''}
+                    <button class="btn btn-sm text-danger" onclick="deleteVaccination(${v.id})" style="background: none; border: none; font-size: 1.1rem;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
             </div>
         `;
     }).join('');
 }
 
 function populateAnimals() {
-    document.getElementById('animal_id').innerHTML = 
-        '<option value="">Tanlang</option>' +
+    const select = document.getElementById('animal_id');
+    select.innerHTML = '<option value="">Tanlang</option>' +
         animals.filter(a => a.status === 'active').map(a => 
             `<option value="${a.id}">${a.type} - ${a.breed}</option>`
         ).join('');
@@ -120,7 +128,7 @@ async function saveVaccination() {
     };
     
     if (!data.animal_id || !data.vaccine_name || !data.vaccination_date) {
-        chorvaApp.showAlert('Barcha maydonlarni to\'ldiring!', 'warning');
+        chorvaApp.showAlert('Barcha kerakli maydonlarni to\'ldiring!', 'warning');
         return;
     }
     
@@ -129,27 +137,39 @@ async function saveVaccination() {
             method: 'POST',
             body: JSON.stringify(data)
         });
-        chorvaApp.showAlert('Vaksinatsiya qo\'shildi!', 'success');
+        chorvaApp.showAlert('Vaksinatsiya saqlandi!', 'success');
         addVaccinationModal.hide();
         document.getElementById('vaccinationForm').reset();
         loadData();
     } catch (error) {
-        chorvaApp.showAlert('Xatolik!', 'danger');
+        chorvaApp.showAlert('Saqlashda xatolik yuz berdi!', 'danger');
     }
 }
 
+async function deleteVaccination(id) {
+    if (confirm("Ushbu vaksinatsiya ma'lumotini o'chirmoqchimisiz?")) {
+        try {
+            const response = await fetch(`/api/vaccinations/${id}`, { method: 'DELETE' });
+            const result = await response.json();
+            if (result.success) {
+                chorvaApp.showAlert('O\'chirildi!', 'success');
+                loadData();
+            } else {
+                chorvaApp.showAlert('Xatolik yuz berdi', 'danger');
+            }
+        } catch (error) {
+            chorvaApp.showAlert('Server bilan bog\'lanishda xato!', 'danger');
+        }
+    }
+}
+
+// Narxni avtomatik formatlash
+document.getElementById('cost').addEventListener('input', function(e) {
+    let val = e.target.value.replace(/\D/g, '');
+    e.target.value = chorvaApp.formatNumber(val);
+});
+
 document.getElementById('vaccination_date').valueAsDate = new Date();
 loadData();
-new chorvaApp.PullToRefresh(() => loadData());
 </script>
 {% endblock %}
-
-<td>
-    <button class="btn btn-sm btn-warning" 
-            onclick="editVaccine('{{ v.id }}', '{{ v.vaccine_name }}', '{{ v.vaccination_date }}', '{{ v.cost }}')">
-        ✏️
-    </button>
-    <button class="btn btn-sm btn-danger" onclick="deleteItem('vaccinations', '{{ v.id }}')">
-        🗑️
-    </button>
-</td>
