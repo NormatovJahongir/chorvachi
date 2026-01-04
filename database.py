@@ -12,7 +12,7 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Database jadvallarini yaratish (PostgreSQL sintaksisida)"""
+    """Database jadvallarini yaratish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -27,8 +27,8 @@ def init_db():
             phone TEXT,
             full_name TEXT,
             language TEXT DEFAULT 'uz',
-            registered_date TEXT DEFAULT CURRENT_TIMESTAMP,
-            last_active TEXT DEFAULT CURRENT_TIMESTAMP
+            registered_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -45,7 +45,7 @@ def init_db():
             purchase_price REAL NOT NULL,
             purchase_date TEXT NOT NULL,
             status TEXT DEFAULT 'active',
-            created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(telegram_id)
         )
     ''')
@@ -59,7 +59,7 @@ def init_db():
             address TEXT,
             experience INTEGER,
             notes TEXT,
-            created_date TEXT DEFAULT CURRENT_TIMESTAMP
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -68,17 +68,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sales (
             id SERIAL PRIMARY KEY,
             user_id BIGINT NOT NULL,
-            animal_id BIGINT NOT NULL,
-            butcher_id BIGINT,
+            animal_id INTEGER NOT NULL,
+            butcher_id INTEGER,
             sale_date TEXT NOT NULL,
             sale_price REAL NOT NULL,
             buyer_name TEXT,
             buyer_phone TEXT,
             payment_type TEXT DEFAULT 'cash',
-            created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(telegram_id),
-            FOREIGN KEY (animal_id) REFERENCES animals(id),
-            FOREIGN KEY (butcher_id) REFERENCES butchers(id)
+            FOREIGN KEY (animal_id) REFERENCES animals(id) ON DELETE CASCADE,
+            FOREIGN KEY (butcher_id) REFERENCES butchers(id) ON DELETE SET NULL
         )
     ''')
     
@@ -92,7 +92,7 @@ def init_db():
             unit_price REAL NOT NULL,
             supplier TEXT,
             feed_date TEXT NOT NULL,
-            created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(telegram_id)
         )
     ''')
@@ -102,15 +102,15 @@ def init_db():
         CREATE TABLE IF NOT EXISTS vaccinations (
             id SERIAL PRIMARY KEY,
             user_id BIGINT NOT NULL,
-            animal_id BIGINT NOT NULL,
+            animal_id INTEGER NOT NULL,
             vaccine_name TEXT NOT NULL,
             vaccination_date TEXT NOT NULL,
             next_date TEXT,
             veterinarian TEXT,
             cost REAL,
-            created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(telegram_id),
-            FOREIGN KEY (animal_id) REFERENCES animals(id)
+            FOREIGN KEY (animal_id) REFERENCES animals(id) ON DELETE CASCADE
         )
     ''')
     
@@ -124,7 +124,7 @@ def init_db():
             category TEXT NOT NULL,
             description TEXT,
             date TEXT NOT NULL,
-            created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(telegram_id)
         )
     ''')
@@ -136,7 +136,6 @@ def init_db():
 # ==================== USERS ====================
 
 def get_user(telegram_id):
-    """Foydalanuvchini olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM users WHERE telegram_id = %s', (telegram_id,))
@@ -146,21 +145,19 @@ def get_user(telegram_id):
     return dict(user) if user else None
 
 def add_user(telegram_id, username, first_name, last_name, phone, full_name, language='uz'):
-    """Foydalanuvchi qo'shish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO users (telegram_id, username, first_name, last_name, phone, full_name, language)
         VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
     ''', (telegram_id, username, first_name, last_name, phone, full_name, language))
-    conn.commit()
     user_id = cursor.fetchone()['id']
+    conn.commit()
     cursor.close()
     conn.close()
     return user_id
 
 def update_user_language(telegram_id, language):
-    """Tilni yangilash"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE users SET language = %s WHERE telegram_id = %s', (language, telegram_id))
@@ -169,7 +166,6 @@ def update_user_language(telegram_id, language):
     conn.close()
 
 def update_user_last_active(telegram_id):
-    """Oxirgi faollikni yangilash"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE users SET last_active = CURRENT_TIMESTAMP WHERE telegram_id = %s', (telegram_id,))
@@ -180,7 +176,6 @@ def update_user_last_active(telegram_id):
 # ==================== ANIMALS ====================
 
 def get_animals(user_id):
-    """Hayvonlarni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM animals WHERE user_id = %s ORDER BY created_date DESC', (user_id,))
@@ -190,7 +185,6 @@ def get_animals(user_id):
     return [dict(animal) for animal in animals]
 
 def get_animal(animal_id):
-    """Hayvonni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM animals WHERE id = %s', (animal_id,))
@@ -200,17 +194,14 @@ def get_animal(animal_id):
     return dict(animal) if animal else None
 
 def add_animal(user_id, animal_type, breed, gender, birth_date, weight, purchase_price, purchase_date):
-    """Hayvon qo'shish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO animals (user_id, type, breed, gender, birth_date, weight, purchase_price, purchase_date)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
     ''', (user_id, animal_type, breed, gender, birth_date, weight, purchase_price, purchase_date))
-    conn.commit()
     animal_id = cursor.fetchone()['id']
     
-    # Moliya qo'shish - hayvon xaridi
     cursor.execute('''
         INSERT INTO finance (user_id, type, amount, category, description, date)
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -221,51 +212,38 @@ def add_animal(user_id, animal_type, breed, gender, birth_date, weight, purchase
     conn.close()
     return animal_id
 
-def update_animal(animal_id, **kwargs):
-    """Hayvonni yangilash"""
+def update_animal(animal_id, data):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     fields = []
     values = []
-    for key, value in kwargs.items():
-        if value is not None:
-            fields.append(f"{key} = %s")
-            values.append(value)
+    for key, value in data.items():
+        fields.append(f"{key} = %s")
+        values.append(value)
     
     if fields:
         values.append(animal_id)
         query = f"UPDATE animals SET {', '.join(fields)} WHERE id = %s"
         cursor.execute(query, values)
         conn.commit()
-
     cursor.close()
     conn.close()
 
-# database.py faylida delete_animal funksiyasini quyidagiga almashtiring:
-
 def delete_animal(animal_id):
-    """Hayvonni o'chirish va moliya jadvalidagi bog'liq yozuvni ham o'chirish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # 1. Avval hayvon ma'lumotlarini olamiz (moliya yozuvini topish uchun)
         cursor.execute('SELECT user_id, type, breed, purchase_price FROM animals WHERE id = %s', (animal_id,))
         animal = cursor.fetchone()
-        
         if animal:
-            # 2. Moliya jadvalidan ushbu hayvonga tegishli xarajatni o'chiramiz
-            # Qidiruv: hayvon turi va zoti tavsifda bo'lishi kerak
-            description_pattern = f"%{animal['type']} - {animal['breed']}%"
+            desc_pattern = f"%{animal['type']} - {animal['breed']}%"
             cursor.execute('''
                 DELETE FROM finance 
                 WHERE user_id = %s AND amount = %s AND category = 'animal_purchase' 
                 AND description LIKE %s
-            ''', (animal['user_id'], animal['purchase_price'], description_pattern))
+            ''', (animal['user_id'], animal['purchase_price'], desc_pattern))
 
-        # 3. Hayvonni o'zini o'chiramiz
         cursor.execute('DELETE FROM animals WHERE id = %s', (animal_id,))
-        
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -275,93 +253,56 @@ def delete_animal(animal_id):
         conn.close()
 
 def get_animals_stats(user_id):
-    """Hayvonlar statistikasi"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Total animals
-    cursor.execute('SELECT COUNT(*) FROM animals WHERE user_id = %s', (user_id,))
-    result = cursor.fetchone()
-    total = result['count'] if result else 0
-    
-    # Active animals
-    cursor.execute('SELECT COUNT(*) FROM animals WHERE user_id = %s AND status = %s', (user_id, 'active'))
-    result = cursor.fetchone()
-    active = result['count'] if result else 0
+    cursor.execute('SELECT COUNT(*) as total FROM animals WHERE user_id = %s', (user_id,))
+    total = cursor.fetchone()['total']
+    cursor.execute("SELECT COUNT(*) as active FROM animals WHERE user_id = %s AND status = 'active'", (user_id,))
+    active = cursor.fetchone()['active']
     cursor.close()
-    
     conn.close()
     return {'total': total, 'active': active}
 
 # ==================== BUTCHERS ====================
 
 def get_butchers(search=None):
-    """Qassoblarni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     if search:
-        search_pattern = f'%{search}%'
-        cursor.execute('''
-            SELECT * FROM butchers 
-            WHERE name LIKE %s OR phone LIKE %s OR address LIKE %s
-            ORDER BY created_date DESC
-        ''', (search_pattern, search_pattern, search_pattern))
+        pattern = f'%{search}%'
+        cursor.execute('SELECT * FROM butchers WHERE name LIKE %s OR phone LIKE %s ORDER BY created_date DESC', (pattern, pattern))
     else:
         cursor.execute('SELECT * FROM butchers ORDER BY created_date DESC')
-    
     butchers = cursor.fetchall()
     cursor.close()
     conn.close()
-    return [dict(butcher) for butcher in butchers]
-
-def get_butcher(butcher_id):
-    """Qassobni olish"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM butchers WHERE id = %s', (butcher_id,))
-    butcher = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    return dict(butcher) if butcher else None
+    return [dict(b) for b in butchers]
 
 def add_butcher(name, phone, address=None, experience=None, notes=None):
-    """Qassob qo'shish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO butchers (name, phone, address, experience, notes)
         VALUES (%s, %s, %s, %s, %s) RETURNING id
     ''', (name, phone, address, experience, notes))
+    bid = cursor.fetchone()['id']
     conn.commit()
-    butcher_id = cursor.fetchone()['id']
     cursor.close()
     conn.close()
-    return butcher_id
+    return bid
 
 def update_butcher(butcher_id, **kwargs):
-    """Qassobni yangilash"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    fields = []
-    values = []
-    for key, value in kwargs.items():
-        if value is not None:
-            fields.append(f"{key} = %s")
-            values.append(value)
-    
-    if fields:
-        values.append(butcher_id)
-        query = f"UPDATE butchers SET {', '.join(fields)} WHERE id = %s"
-        cursor.execute(query, values)
-        conn.commit()
-        cursor.close()
-    
+    fields = [f"{k} = %s" for k in kwargs.keys()]
+    values = list(kwargs.values())
+    values.append(butcher_id)
+    cursor.execute(f"UPDATE butchers SET {', '.join(fields)} WHERE id = %s", values)
+    conn.commit()
+    cursor.close()
     conn.close()
 
 def delete_butcher(butcher_id):
-    """Qassobni o'chirish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('DELETE FROM butchers WHERE id = %s', (butcher_id,))
@@ -372,51 +313,41 @@ def delete_butcher(butcher_id):
 # ==================== SALES ====================
 
 def get_sales(user_id):
-    """Sotuvlarni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT s.*, a.type as animal_type, a.breed, a.purchase_price, b.name as butcher_name
+        SELECT s.*, a.type as animal_type, a.breed, b.name as butcher_name
         FROM sales s
         LEFT JOIN animals a ON s.animal_id = a.id
         LEFT JOIN butchers b ON s.butcher_id = b.id
-        WHERE s.user_id = %s
-        ORDER BY s.sale_date DESC
+        WHERE s.user_id = %s ORDER BY s.sale_date DESC
     ''', (user_id,))
     sales = cursor.fetchall()
     cursor.close()
     conn.close()
-    return [dict(sale) for sale in sales]
+    return [dict(s) for s in sales]
 
 def add_sale(user_id, animal_id, butcher_id, sale_date, sale_price, buyer_name=None, buyer_phone=None, payment_type='cash'):
-    """Sotuv qo'shish"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Hayvonni tekshirish
-    cursor.execute('SELECT * FROM animals WHERE id = %s AND user_id = %s', (animal_id, user_id))
+    cursor.execute('SELECT purchase_price FROM animals WHERE id = %s', (animal_id,))
     animal = cursor.fetchone()
     if not animal:
-        cursor.close()
-        conn.close()
         return None
     
-    # Sotuvni saqlash
     cursor.execute('''
         INSERT INTO sales (user_id, animal_id, butcher_id, sale_date, sale_price, buyer_name, buyer_phone, payment_type)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
     ''', (user_id, animal_id, butcher_id, sale_date, sale_price, buyer_name, buyer_phone, payment_type))
     sale_id = cursor.fetchone()['id']
     
-    # Hayvon statusini yangilash
-    cursor.execute('UPDATE animals SET status = %s WHERE id = %s', ('sold', animal_id))
+    cursor.execute("UPDATE animals SET status = 'sold' WHERE id = %s", (animal_id,))
     
-    # Moliya qo'shish - sotuv
-    profit = sale_price - dict(animal)['purchase_price']
+    profit = sale_price - animal['purchase_price']
     cursor.execute('''
         INSERT INTO finance (user_id, type, amount, category, description, date)
         VALUES (%s, %s, %s, %s, %s, %s)
-    ''', (user_id, 'income', sale_price, 'animal_sale', f'Sotuv (Foyda: {profit:,.0f})', sale_date))
+    ''', (user_id, 'income', sale_price, 'animal_sale', f'Sotuv (Foyda: {profit})', sale_date))
     
     conn.commit()
     cursor.close()
@@ -424,18 +355,12 @@ def add_sale(user_id, animal_id, butcher_id, sale_date, sale_price, buyer_name=N
     return sale_id
 
 def delete_sale(sale_id):
-    """Sotuvni o'chirish"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Sotuv ma'lumotlarini olish
     cursor.execute('SELECT animal_id FROM sales WHERE id = %s', (sale_id,))
     sale = cursor.fetchone()
-    
     if sale:
-        # Hayvon statusini qaytarish
-        cursor.execute('UPDATE animals SET status = %s WHERE id = %s', ('active', dict(sale)['animal_id']))
-    
+        cursor.execute("UPDATE animals SET status = 'active' WHERE id = %s", (sale['animal_id'],))
     cursor.execute('DELETE FROM sales WHERE id = %s', (sale_id,))
     conn.commit()
     cursor.close()
@@ -444,78 +369,58 @@ def delete_sale(sale_id):
 # ==================== FEED ====================
 
 def get_feed(user_id):
-    """Ozuqalarni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM feed WHERE user_id = %s ORDER BY feed_date DESC', (user_id,))
-    feed = cursor.fetchall()
+    feeds = cursor.fetchall()
     cursor.close()
     conn.close()
-    return [dict(f) for f in feed]
+    return [dict(f) for f in feeds]
 
 def add_feed(user_id, name, quantity, unit_price, supplier=None, feed_date=None):
-    """Ozuqa qo'shish"""
-    if not feed_date:
-        feed_date = datetime.now().strftime('%Y-%m-%d')
-    
+    if not feed_date: feed_date = datetime.now().strftime('%Y-%m-%d')
+    total = quantity * unit_price
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    total_cost = quantity * unit_price
-    
     cursor.execute('''
         INSERT INTO feed (user_id, name, quantity, unit_price, supplier, feed_date)
         VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
     ''', (user_id, name, quantity, unit_price, supplier, feed_date))
-    feed_id = cursor.fetchone()['id']
+    fid = cursor.fetchone()['id']
     
-    # Moliya qo'shish
     cursor.execute('''
         INSERT INTO finance (user_id, type, amount, category, description, date)
         VALUES (%s, %s, %s, %s, %s, %s)
-    ''', (user_id, 'expense', total_cost, 'feed_purchase', f'{name} ({quantity} kg)', feed_date))
+    ''', (user_id, 'expense', total, 'feed_purchase', f'{name} ({quantity} kg)', feed_date))
     
     conn.commit()
     cursor.close()
     conn.close()
-    return feed_id
-    
+    return fid
+
 def update_feed(feed_id, data):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        UPDATE feed SET feed_name=%s, quantity=%s, unit_price=%s, 
-        total_price=%s, supplier=%s, feed_date=%s 
-        WHERE id=%s''',
-        (data['feed_name'], data['quantity'], data['unit_price'], 
-         data['total_price'], data['supplier'], data['feed_date'], feed_id))
+        UPDATE feed SET name=%s, quantity=%s, unit_price=%s, supplier=%s, feed_date=%s 
+        WHERE id=%s''', (data['name'], data['quantity'], data['unit_price'], data['supplier'], data['feed_date'], feed_id))
     conn.commit()
     cursor.close()
     conn.close()
-    
+
 def delete_feed(feed_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # 1. Avval ozuqa ma'lumotini olamiz
-        cursor.execute('SELECT user_id, feed_name, total_price FROM feed WHERE id = %s', (feed_id,))
+        cursor.execute('SELECT user_id, name, (quantity * unit_price) as total FROM feed WHERE id = %s', (feed_id,))
         feed = cursor.fetchone()
-        
         if feed:
-            # 2. Moliya jadvalidan ushbu ozuqa xarajatini o'chiramiz
-            desc = f"%{feed['feed_name']}%"
             cursor.execute('''
-                DELETE FROM finance 
-                WHERE user_id = %s AND amount = %s AND category = 'feed_purchase' 
+                DELETE FROM finance WHERE user_id = %s AND amount = %s AND category = 'feed_purchase' 
                 AND description LIKE %s
-            ''', (feed['user_id'], feed['total_price'], desc))
-
-        # 3. Ozuqani o'zini o'chiramiz
+            ''', (feed['user_id'], feed['total'], f"%{feed['name']}%"))
         cursor.execute('DELETE FROM feed WHERE id = %s', (feed_id,))
         conn.commit()
-    except Exception as e:
-        conn.rollback()
-        raise e
     finally:
         cursor.close()
         conn.close()
@@ -523,61 +428,50 @@ def delete_feed(feed_id):
 # ==================== VACCINATIONS ====================
 
 def get_vaccinations(user_id):
-    """Vaksinatsiyalarni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT v.*, a.type as animal_type, a.breed
-        FROM vaccinations v
+        SELECT v.*, a.type as animal_type, a.breed FROM vaccinations v
         LEFT JOIN animals a ON v.animal_id = a.id
-        WHERE v.user_id = %s
-        ORDER BY v.vaccination_date DESC
+        WHERE v.user_id = %s ORDER BY v.vaccination_date DESC
     ''', (user_id,))
-    vaccinations = cursor.fetchall()
+    vax = cursor.fetchall()
     cursor.close()
     conn.close()
-    return [dict(v) for v in vaccinations]
+    return [dict(v) for v in vax]
 
-def add_vaccination(user_id, animal_id, vaccine_name, vaccination_date, next_date=None, veterinarian=None, cost=None):
-    """Vaksinatsiya qo'shish"""
+def add_vaccination(user_id, animal_id, vaccine_name, vaccination_date, next_date=None, veterinarian=None, cost=0):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO vaccinations (user_id, animal_id, vaccine_name, vaccination_date, next_date, veterinarian, cost)
         VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
     ''', (user_id, animal_id, vaccine_name, vaccination_date, next_date, veterinarian, cost))
-    vaccination_id = cursor.fetchone()['id']
-    
-    # Agar narx kiritilgan bo'lsa moliya qo'shish
-    if cost:
+    vid = cursor.fetchone()['id']
+    if cost and cost > 0:
         cursor.execute('''
             INSERT INTO finance (user_id, type, amount, category, description, date)
             VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (user_id, 'expense', cost, 'medicine', f'{vaccine_name}', vaccination_date))
-    
+        ''', (user_id, 'expense', cost, 'medicine', f'Vaksina: {vaccine_name}', vaccination_date))
     conn.commit()
     cursor.close()
     conn.close()
-    return vaccination_id
-    
-    def update_vaccination(vac_id, data):
+    return vid
+
+def update_vaccination(vac_id, data):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        UPDATE vaccinations SET vaccine_name=%s, vaccination_date=%s, 
-        next_date=%s, veterinarian=%s, cost=%s 
-        WHERE id=%s''',
-        (data['vaccine_name'], data['vaccination_date'], data['next_date'], 
-         data['veterinarian'], data['cost'], vac_id))
+        UPDATE vaccinations SET vaccine_name=%s, vaccination_date=%s, next_date=%s, veterinarian=%s, cost=%s 
+        WHERE id=%s''', (data['vaccine_name'], data['vaccination_date'], data.get('next_date'), data.get('veterinarian'), data.get('cost'), vac_id))
     conn.commit()
     cursor.close()
     conn.close()
 
-def delete_vaccination(vaccination_id):
-    """Vaksinatsiyani o'chirish"""
+def delete_vaccination(vac_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM vaccinations WHERE id = %s', (vaccination_id,))
+    cursor.execute('DELETE FROM vaccinations WHERE id = %s', (vac_id,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -585,78 +479,61 @@ def delete_vaccination(vaccination_id):
 # ==================== FINANCE ====================
 
 def get_finance(user_id):
-    """Moliyalarni olish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM finance WHERE user_id = %s ORDER BY date DESC', (user_id,))
-    finance = cursor.fetchall()
+    fin = cursor.fetchall()
     cursor.close()
     conn.close()
-    return [dict(f) for f in finance]
+    return [dict(f) for f in fin]
 
 def add_finance(user_id, finance_type, amount, category, description=None, date=None):
-    """Moliya qo'shish"""
-    if not date:
-        date = datetime.now().strftime('%Y-%m-%d')
-    
+    if not date: date = datetime.now().strftime('%Y-%m-%d')
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO finance (user_id, type, amount, category, description, date)
-        VALUES (%s, %s, %s, %s, %s, %s)RETURNING id
+        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
     ''', (user_id, finance_type, amount, category, description, date))
+    fid = cursor.fetchone()['id']
     conn.commit()
-    finance_id = cursor.fetchone()['id']
     cursor.close()
     conn.close()
-    return finance_id
+    return fid
 
-def delete_finance(finance_id):
-    """Moliyani o'chirish"""
+def delete_finance(fid):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM finance WHERE id = %s', (finance_id,))
+    cursor.execute('DELETE FROM finance WHERE id = %s', (fid,))
     conn.commit()
     cursor.close()
     conn.close()
 
 def get_finance_stats(user_id):
-    """Moliya statistikasi"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Income
-    cursor.execute('SELECT SUM(amount) FROM finance WHERE user_id = %s AND type = %s', (user_id, 'income'))
-    result = cursor.fetchone()
-    income = result['sum'] if result and result['sum'] else 0
-    
-    # Expense
-    cursor.execute('SELECT SUM(amount) FROM finance WHERE user_id = %s AND type = %s', (user_id, 'expense'))
-    result = cursor.fetchone()
-    expense = result['sum'] if result and result['sum'] else 0
-    
+    cursor.execute("SELECT SUM(amount) as total FROM finance WHERE user_id = %s AND type = 'income'", (user_id,))
+    inc = cursor.fetchone()['total'] or 0
+    cursor.execute("SELECT SUM(amount) as total FROM finance WHERE user_id = %s AND type = 'expense'", (user_id,))
+    exp = cursor.fetchone()['total'] or 0
     cursor.close()
     conn.close()
-    return {
-        'income': income,
-        'expense': expense,
-        'profit': income - expense
-    }
-    
+    return {'income': inc, 'expense': exp, 'profit': inc - exp}
+
 def delete_user_completely(telegram_id):
-    """Foydalanuvchi va unga tegishli barcha ma'lumotlarni o'chirish"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Avval moliya va hayvonlarni o'chiramiz
         cursor.execute('DELETE FROM finance WHERE user_id = %s', (telegram_id,))
+        cursor.execute('DELETE FROM vaccinations WHERE user_id = %s', (telegram_id,))
+        cursor.execute('DELETE FROM feed WHERE user_id = %s', (telegram_id,))
+        cursor.execute('DELETE FROM sales WHERE user_id = %s', (telegram_id,))
         cursor.execute('DELETE FROM animals WHERE user_id = %s', (telegram_id,))
-        # Keyin foydalanuvchining o'zini
         cursor.execute('DELETE FROM users WHERE telegram_id = %s', (telegram_id,))
         conn.commit()
     except Exception as e:
         conn.rollback()
-        print(f"O'chirishda xato: {e}")
+        print(f"Error: {e}")
     finally:
         cursor.close()
         conn.close()
