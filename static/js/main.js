@@ -406,3 +406,33 @@ window.chorvaApp = {
     validateForm,
     confirmDelete
 };
+
+// O'chirish funksiyasi
+async function deleteItem(type, id) {
+    if (confirm("Haqiqatan ham o'chirmoqchimisiz?")) {
+        try {
+            const response = await fetch(`/api/${type}/${id}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert("Muvaffaqiyatli o'chirildi!");
+                location.reload();
+            }
+        } catch (error) {
+            alert("Xatolik yuz berdi!");
+        }
+    }
+}
+
+// Tahrirlash funksiyasi (Ma'lumotlarni modalga chiqarish)
+function editFeed(id, name, qty, price, supplier, date) {
+    document.getElementById('edit_feed_id').value = id;
+    document.getElementById('edit_feed_name').value = name;
+    document.getElementById('edit_quantity').value = qty;
+    document.getElementById('edit_unit_price').value = price;
+    document.getElementById('edit_supplier').value = supplier;
+    document.getElementById('edit_feed_date').value = date;
+    // Modalni ochish (Bootstrap ishlatayotgan bo'lsangiz)
+    new bootstrap.Modal(document.getElementById('editFeedModal')).show();
+}
