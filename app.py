@@ -186,11 +186,36 @@ def create_animal():
     )
     return jsonify({'success': True, 'id': animal_id})
 
+# app.py ichidagi update_animal_route funksiyasi
+
 @app.route('/api/animals/<int:animal_id>', methods=['PUT'])
-def update_animal(animal_id):
-    """Hayvonni yangilash"""
+def update_animal_route(animal_id):
     data = request.json
-    db.update_animal(animal_id, **data)
+    user_id = session.get('user_id')
+    
+    # Eski ma'lumotlarni olish (moliya yozuvini topish uchun)
+    old_animal = db.get_animal(animal_id) 
+    
+    # 1. Hayvonni yangilash
+    db.update_animal(animal_id, data)
+    
+    # 2. Moliya jadvalidagi summani ham yangilash
+    if old_animal and float(old_animal['purchase_price']) != float(data['purchase_price']):
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        description_pattern = f"%{old_animal['type']} - {old_animal['breed']}%"
+        
+        cursor.execute('''
+            UPDATE finance 
+            SET amount = %s 
+            WHERE user_id = %s AND amount = %s AND category = 'animal_purchase'
+            AND description LIKE %s
+        ''', (data['purchase_price'], user_id, old_animal['purchase_price'], description_pattern))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
     return jsonify({'success': True})
 
 @app.route('/api/animals/<int:animal_id>', methods=['DELETE'])
