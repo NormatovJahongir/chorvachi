@@ -143,3 +143,14 @@ loadFeed();
 new chorvaApp.PullToRefresh(() => loadFeed());
 </script>
 {% endblock %}
+
+<td>
+    <button class="btn btn-sm btn-warning" 
+            onclick="editFeed('{{ item.id }}', '{{ item.feed_name }}', '{{ item.quantity }}', '{{ item.unit_price }}', '{{ item.supplier }}', '{{ item.feed_date }}')">
+        ✏️
+    </button>
+    
+    <button class="btn btn-sm btn-danger" onclick="deleteItem('feed', '{{ item.id }}')">
+        🗑️
+    </button>
+</td>
