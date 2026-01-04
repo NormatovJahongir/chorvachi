@@ -143,3 +143,13 @@ loadData();
 new chorvaApp.PullToRefresh(() => loadData());
 </script>
 {% endblock %}
+
+<td>
+    <button class="btn btn-sm btn-warning" 
+            onclick="editVaccine('{{ v.id }}', '{{ v.vaccine_name }}', '{{ v.vaccination_date }}', '{{ v.cost }}')">
+        ✏️
+    </button>
+    <button class="btn btn-sm btn-danger" onclick="deleteItem('vaccinations', '{{ v.id }}')">
+        🗑️
+    </button>
+</td>
